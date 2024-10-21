@@ -6,7 +6,10 @@ def transform_graph_spec(graph_spec: str) -> str:
     transformed_lines = []
 
     for line in lines:
-        if not len(line.strip()) or line[0] in ["#", "-", "/"]:
+        # Remove comments from the line
+        line = line.split('#')[0].strip()
+        
+        if not line or line[0] in ["-", "/"]:
             continue
         if "=>" in line and not line[0].isspace():
             parts = line.split("=>")
