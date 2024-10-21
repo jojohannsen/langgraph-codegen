@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="langgraph-codegen",           # Package name on PyPI
-    version="0.1.3",
+    version="0.1.4",
     description="Generate graph code from DSL for LangGraph framework", 
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
