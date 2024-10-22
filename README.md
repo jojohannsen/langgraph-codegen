@@ -53,4 +53,12 @@ node_X
   => END  # unconditional if all above conditions fail
 ```
 
-```node_1 => node_2, node_3``` ok to transition to multiple nodes
+```node_1 => node_2, node_3``` ok to transition to multiple nodes.
+
+##### Why This DSL Was Made
+
+The main thing I want to do is condense larger patterns into the DSL, to make it easier to experiment with and evaluate graph architectures.
+
+The thing I like about the code with the DSL is that both Nodes and Conditional Edges are represented by functions that take the Graph State as a parameter.  The second thing I like about it is that Nodes have a single name, it's in the text graph, and there's a function with that name.
+
+The langgraph graph GraphBuilder is way more flexible, but in many cases an equivalent DSL version is easier to understand and easier to modify, and easier to experiment with different graph architectures.

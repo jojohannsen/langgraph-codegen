@@ -1,0 +1,24 @@
+set -x
+echo "have to run in py312 env"
+echo "are changes (other than setup.py) committed? "
+VERSION=$(grep version setup.py | sed -E 's/.*version="([^"]+)".*/\1/')
+read -p "Current version: $VERSION, New version: " version
+echo "$VERSION, $version"
+sed "s/$VERSION/$version/g" setup.py > setup2.py
+diff setup.py setup2.py
+read -p "This OK? (y/n) " is_ok
+
+if [ "$is_ok" = "y" ]; then
+    mv setup2.py setup.py
+    echo "File setup2.py has been moved to setup.py"
+    git add setup.py
+    git commit -m "updates"
+    git push origin main
+    git tag $version
+    git push origin $version
+else
+    echo "Operation cancelled"
+fi
+
+#python setup.py sdist bdist_wheel
+#twine upload dist/*
