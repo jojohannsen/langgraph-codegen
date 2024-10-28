@@ -243,7 +243,10 @@ def gen_conditions(graph_spec):
 
 def mk_state(state_class):
     return f"""
-# GENERATED CODE -- useful only for simulation mode
+# GENERATED CODE: mock graph state
+from typing import Annotated, TypedDict
+from langgraph.graph import add_state
+
 class {state_class}(TypedDict):
     states: Annotated[list[str], add_state]
     last_state: str
