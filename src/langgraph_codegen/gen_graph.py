@@ -260,6 +260,7 @@ def gen_graph(graph_name, graph_spec, compile_args=None):
 
     # Generate the graph state, node definitions, and entry point
     graph_setup = f"# GENERATED code, creates compiled graph: {graph_name}\n"
+    graph_setup += """from langgraph.graph import START, END, StateGraph\n""" 
 
     state_type = graph[start_node]['state']
     graph_setup += f"{graph_name} = StateGraph({state_type})\n"
