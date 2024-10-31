@@ -7,15 +7,16 @@ def transform_graph_spec(graph_spec: str) -> str:
 
     for line in lines:
         # Remove comments from the line
-        line = line.split('#')[0].strip()
+        # design issue here, we are relying on whitespace at beginning controls how to interpret the line, so have to rstrip only
+        line = line.split('#')[0].rstrip()
         
         if not line or line[0] in ["-", "/"]:
             continue
         if "=>" in line and not line[0].isspace():
-            parts = line.split("=>")
-            if parts[0].strip():
-                transformed_lines.append(parts[0].strip())
-                transformed_lines.append(f"  => {parts[1].strip()}")
+            parts = [p.strip() for p in line.split("=>")]
+            if parts[0]:
+                transformed_lines.append(parts[0])
+                transformed_lines.append(f"  => {parts[1]}")
             else:
                 transformed_lines.append(line)
         else:
@@ -138,7 +139,7 @@ def mk_conditional_edges(graph_name, node_name, node_dict):
                 for x in data:
                     x = x.strip()
                     edge_code += f"{graph_name}.add_edge('{node_name}', '{x}')\n"
-            elif "[" in destination:
+            elif "[" in destination:  # parallel output destinations,
                 function, var_name, state_field = parse_string(destination)
                 edge_code += f"def after_{node_name}(state):\n"
                 edge_code += f"    return [Send('{function}', {{'{var_name}': s}}) for s in state['{state_field}']]\n"
@@ -178,7 +179,7 @@ def mk_conditional_edges(graph_name, node_name, node_dict):
         # If there's a single edge with a condition, dict needs END: END
         if len(edges) == 1 and edges[0]["condition"] != "true_fn":
             dict_entries += ", END: END"
-        node_dict_str = f"{node_name}_dict = {{{dict_entries}}}"
+        node_dict_str = f"{node_name}_conditional_edges = {{{dict_entries}}}"
         multiple = any("," in edge["destination"] for edge in edges)
         if multiple:
             # not really understanding, but it seems that in this case, we just have a list of
@@ -188,10 +189,10 @@ def mk_conditional_edges(graph_name, node_name, node_dict):
                 destinations = edge["destination"].split(",")
                 for dest in destinations:
                     s.add(dest.strip())
-            node_dict_str = f"{node_name}_dict = {list(s)}"
+            node_dict_str = f"{node_name}_conditional_edges = {list(s)}"
 
         # Create the add_conditional_edges call
-        add_edges_str = f"{graph_name}.add_conditional_edges('{node_name}', after_{node_name}, {node_name}_dict)"
+        add_edges_str = f"{graph_name}.add_conditional_edges('{node_name}', after_{node_name}, {node_name}_conditional_edges)"
 
         return f"{node_dict_str}\n{add_edges_str}\n"
 
@@ -241,20 +242,22 @@ def gen_conditions(graph_spec):
     result = "# GENERATED CODE -- used for graph simulation mode"
     return result + "\n".join(conditions) if conditions else "# This graph has no conditional edges"
 
-def mk_state(state_class):
-    return f"""
+def mock_state(state_class):
+    result = f"""
 # GENERATED CODE: mock graph state
 from typing import Annotated, TypedDict
-from langgraph.graph import add_state
+from langgraph.graph.message import add_messages
 
 class {state_class}(TypedDict):
-    states: Annotated[list[str], add_state]
+    states: Annotated[list[str], add_messages]
     last_state: str
 """
+    print("MOCK_STATE RESULT:::", result, ":::END_OF_RESULT:::")
+    return result
 
 def gen_state(graph_spec):
     graph, start_node = parse_graph_spec(graph_spec)
-    return mk_state(graph[start_node]["state"])
+    return mock_state(graph[start_node]["state"])
 
 def gen_graph(graph_name, graph_spec, compile_args=None):
     if not graph_spec: return ""
@@ -262,10 +265,11 @@ def gen_graph(graph_name, graph_spec, compile_args=None):
     nodes_added = []
 
     # Generate the graph state, node definitions, and entry point
-    graph_setup = f"# GENERATED code, creates compiled graph: {graph_name}\n"
-    graph_setup += """from langgraph.graph import START, END, StateGraph\n""" 
+    initial_comment = f"# GENERATED code, creates compiled graph: {graph_name}\n"
+    graph_setup = ""
 
     state_type = graph[start_node]['state']
+    imports = """from langgraph.graph import START, END, StateGraph""" 
     graph_setup += f"{graph_name} = StateGraph({state_type})\n"
     if state_type == "MessageGraph":
         graph_setup = f"{graph_name} = MessageGraph()\n"
@@ -296,7 +300,9 @@ def gen_graph(graph_name, graph_spec, compile_args=None):
 
     compile_args = compile_args if compile_args else ""
     return (
-        graph_setup
+        initial_comment
+        + imports + "\n\n"
+        + graph_setup
         + "\n".join(node_code)
         + "\n\n"
         + f"{graph_name} = {graph_name}.compile({compile_args})"

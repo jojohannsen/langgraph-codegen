@@ -5,8 +5,13 @@ import_dict = {
     # key: what we are importing, value: complete import statement
     'END': 'from langgraph.graph import END',
     'START': 'from langgraph.graph import START',
-    'StateGraph': 'from langgraph.graph import StateGraph'
+    'StateGraph': 'from langgraph.graph import StateGraph',
+    'add_messages': 'from langgraph.graph.message import add_messages',
+    'TypedDict': 'from typing import TypedDict',
+    'Annotated': 'from typing import Annotated'
 }
+
+builtin_names = { "ValueError" }
 
 def import_statements(defined, used):
     return [import_dict[name] for name in used - defined if import_dict.get(name, None)]
@@ -69,6 +74,7 @@ class CodeSnippetAnalyzer:
         imports = import_statements(defined_variables, used_variables)
         undefined_variables = {var for var in used_variables 
                              if var not in defined_variables and 
+                             var not in builtin_names and
                              var not in [x.split(' ')[-1] for x in imports]}
         
         return defined_variables, used_variables, undefined_variables, imports
