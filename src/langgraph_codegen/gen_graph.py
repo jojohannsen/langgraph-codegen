@@ -1,5 +1,11 @@
 import re
 import random
+import sys
+from typing import Dict, Any, Optional
+
+# Add these constants near the top of the file, after the imports
+ERROR_MISSING_IMPORTS = "Missing required imports for graph compilation"
+ERROR_START_NODE_NOT_FOUND = "START node not found at beginning of graph specification"
 
 def transform_graph_spec(graph_spec: str) -> str:
     lines = graph_spec.split("\n")
@@ -307,3 +313,91 @@ def gen_graph(graph_name, graph_spec, compile_args=None):
         + "\n\n"
         + f"{graph_name} = {graph_name}.compile({compile_args})"
     )
+
+def normalize_indentation(graph_spec: str) -> str:
+    """
+    Normalize indentation in graph_spec by finding minimum indentation 
+    and removing it from all lines.
+    
+    Args:
+        graph_spec: String containing the graph specification
+        
+    Returns:
+        String with normalized indentation
+    """
+    # Split into lines and filter out empty lines
+    lines = [line for line in graph_spec.split('\n') if line.strip()]
+    
+    # Find minimum indentation of non-empty lines
+    min_indent = float('inf')
+    for line in lines:
+        # Count leading spaces for non-empty lines
+        leading_spaces = len(line) - len(line.lstrip())
+        if leading_spaces < min_indent:
+            min_indent = leading_spaces
+    
+    # If no indentation found or min_indent is 0, return original
+    if min_indent == 0 or min_indent == float('inf'):
+        return graph_spec
+        
+    # Remove minimum indentation from all lines
+    normalized_lines = []
+    for line in graph_spec.split('\n'):
+        if line.strip():  # Only process non-empty lines
+            normalized_lines.append(line[min_indent:])
+        else:
+            normalized_lines.append(line)
+            
+    return '\n'.join(normalized_lines)
+
+
+def compile_graph(graph_spec: str) -> Dict[str, Any]:
+    """
+    Compile a graph specification into an executable graph object.
+    
+    Args:
+        graph_spec: String containing the graph specification
+        
+    Returns:
+        Dict containing either:
+        - {"graph": compiled_graph} for successful compilation
+        - {"error": accumulated_errors, "solution": accumulated_solutions} for validation/compilation errors
+    """
+    errors = []
+    solutions = []
+    
+    # Normalize indentation first
+    graph_spec = normalize_indentation(graph_spec)
+    
+    # Check for required imports
+    if "langgraph.graph" not in sys.modules:
+        errors.append(ERROR_MISSING_IMPORTS)
+        solutions.append(
+            "Please ensure the following imports are present:\n"
+            "from langgraph.graph import START, END, StateGraph\n"
+        )
+    
+    # Validate START node
+    lines = [line.strip() for line in graph_spec.split('\n') if line.strip()]
+    first_non_comment = next((line for line in lines if not line.startswith('#')), None)
+    
+    if not first_non_comment or not first_non_comment.startswith('START('):
+        errors.append(ERROR_START_NODE_NOT_FOUND)
+        solutions.append(
+            "The graph must begin with a START node definition, for example:\n"
+            "START(State) => first_node"
+        )
+    
+    try:
+        if not errors:  # Only try to parse if no errors so far
+            graph_dict, start_node = parse_graph_spec(graph_spec)
+            return {"graph": graph_dict}
+    except Exception as e:
+        errors.append(str(e))
+        solutions.append("Please check the graph specification syntax")
+    
+    # If we get here, there were errors
+    return {
+        "error": "\n".join(f"{i+1}. {error}" for i, error in enumerate(errors)),
+        "solution": "\n".join(f"{i+1}. {solution}" for i, solution in enumerate(solutions))
+    }

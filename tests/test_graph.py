@@ -8,6 +8,7 @@ except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
     from langgraph_codegen.gen_graph import gen_graph, gen_state
     
+import pytest
 from code_snippet_analyzer import CodeSnippetAnalyzer
 from typing import Annotated
 
@@ -58,19 +59,29 @@ def test_multiple_nodes():
 def no_import(code):
     return "\n".join(line for line in code.split("\n") if not line.startswith("from ") and not line.startswith("import "))
 
-# exec doesn't do imports, so i can't put it in the code that is executed
 from langgraph.graph.message import add_messages
-from langgraph.graph import StateGraph
+from langgraph.graph import StateGraph, START, END
 from typing import TypedDict
 from typing import Annotated
-from langgraph.graph import START
-from langgraph.graph import END
+
 def test_gen_state():
+    # Create globals dictionary with necessary imports
+    globals_dict = {
+        'add_messages': add_messages,
+        'StateGraph': StateGraph,
+        'START': START,
+        'END': END,
+        'TypedDict': TypedDict,
+        'Annotated': Annotated,
+        # Add any other required imports here
+    }
+    
     mock_graph_state = gen_state(tests["conditional_edge"])
     graph_code = gen_graph("test_gs", tests["conditional_edge"])
     print("mock_graph_state", mock_graph_state)
     print("graph_code", graph_code)
     analyzer = CodeSnippetAnalyzer()
+    
     fake_nodes_and_conditions = """
 def first_node(state):
     pass
@@ -88,16 +99,51 @@ def condition_2(state):
     defined_variables, used_variables, undefined_variables, import_statements = analyzer.analyze_code(code)
     print("undefined_variables", undefined_variables)
     assert defined_variables == {'last_state', 'ConditionalEdgeTestState', 'states', 'test_gs', 
-                                 'first_node_conditional_edges', 'after_first_node', 'state'}
+                               'first_node_conditional_edges', 'after_first_node', 'state'}
     assert undefined_variables == {"first_node", "second_node", "condition_1", "condition_2"}
+    
     # verify that code can be executed
     try:
         code = f"{fake_nodes_and_conditions}\n{code}"
         print("CODE:::", code)
-        exec(code)
+        # Pass both globals and locals dictionaries to exec
+        exec(code, globals_dict, globals_dict)
     except Exception as e:
         print("ERROR:::", e)
         assert False
 
+def test_code_analysis():
+    code_snippet = """# GENERATED code, creates compiled graph: agent_supervisor
+from langgraph.graph import START, END, StateGraph
+
+agent_supervisor = StateGraph(AgentState)
+agent_supervisor.add_node('supervisor_agent', supervisor_agent)
+agent_supervisor.add_node('research_node', research_node)
+agent_supervisor.add_node('code_node', code_node)
+agent_supervisor.add_edge(START, 'supervisor_agent')
+def after_supervisor_agent(state: AgentState):
+    if next_is_researcher(state):
+        return 'research_node'
+    elif next_is_coder(state):
+        return 'code_node'
+    elif next_is_finish(state):
+        return 'END'
+    else:
+        raise ValueError("No destination")
+
+supervisor_agent_conditional_edges = {'research_node': 'research_node', 'code_node': 'code_node', 'END': END}
+agent_supervisor.add_conditional_edges('supervisor_agent', after_supervisor_agent, supervisor_agent_conditional_edges)
+
+agent_supervisor.add_edge('research_node', 'supervisor_agent')
+agent_supervisor.add_edge('code_node', 'supervisor_agent')
+
+agent_supervisor = agent_supervisor.compile()"""
+    analyzer = CodeSnippetAnalyzer()
+    defined_variables, used_variables, undefined_variables, import_statements = analyzer.analyze_code(code_snippet)
+    print("defined_variables", defined_variables)
+    print("used_variables", used_variables)
+    print("undefined_variables", undefined_variables)
+    print("import_statements", import_statements)
+
 if __name__ == "__main__":
-    test_gen_state()
+    pytest.main([__file__])

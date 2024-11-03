@@ -42,7 +42,7 @@ class CodeSnippetAnalyzer:
                     defined_variables.add(alias.name)
 
             def visit_ImportFrom(self, node):
-                used_variables.add(node.module)
+                pass
 
             def visit_FunctionDef(self, node):
                 defined_variables.add(node.name)
