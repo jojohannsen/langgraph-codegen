@@ -351,17 +351,17 @@ def normalize_indentation(graph_spec: str) -> str:
     return '\n'.join(normalized_lines)
 
 
-def compile_graph(graph_spec: str) -> Dict[str, Any]:
+def validate_graph(graph_spec: str) -> Dict[str, Any]:
     """
-    Compile a graph specification into an executable graph object.
+    Validate a graph specification and return any validation errors.
     
     Args:
         graph_spec: String containing the graph specification
         
     Returns:
         Dict containing either:
-        - {"graph": compiled_graph} for successful compilation
-        - {"error": accumulated_errors, "solution": accumulated_solutions} for validation/compilation errors
+        - {"graph": parsed_graph_dict} if validation succeeds
+        - {"error": error_messages, "solution": suggested_solutions} if validation fails
     """
     errors = []
     solutions = []
@@ -369,13 +369,13 @@ def compile_graph(graph_spec: str) -> Dict[str, Any]:
     # Normalize indentation first
     graph_spec = normalize_indentation(graph_spec)
     
-    # Check for required imports
-    if "langgraph.graph" not in sys.modules:
-        errors.append(ERROR_MISSING_IMPORTS)
-        solutions.append(
-            "Please ensure the following imports are present:\n"
-            "from langgraph.graph import START, END, StateGraph\n"
-        )
+    # Check for required imports, below does not work,
+    # if "langgraph.graph" not in sys.modules:
+    #     errors.append(ERROR_MISSING_IMPORTS)
+    #     solutions.append(
+    #         "Please ensure the following imports are present:\n"
+    #         "from langgraph.graph import START, END, StateGraph\n"
+    #     )
     
     # Validate START node
     lines = [line.strip() for line in graph_spec.split('\n') if line.strip()]

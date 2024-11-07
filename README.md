@@ -1,4 +1,16 @@
 # langgraph-codegen
+##### Quick Start
+
+To generate a graph from text:
+
+```bash
+lgcodegen my_graph simple.graph
+```
+
+
+
+##### Use function
+
 Generates python code for parts of langgraph
 
 ```python

@@ -1,12 +1,12 @@
 try:
     # Try installed package first
-    from langgraph_codegen.gen_graph import gen_graph, gen_state, parse_graph_spec
+    from langgraph_codegen.gen_graph import gen_graph, gen_state, parse_graph_spec, validate_graph
 except ImportError:
     # Fall back to local development path
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-    from langgraph_codegen.gen_graph import gen_graph, gen_state, parse_graph_spec
+    from langgraph_codegen.gen_graph import gen_graph, gen_state, parse_graph_spec, validate_graph
 
 def test_parse_graph_spec_conditions():
     # Test graph with various condition types
@@ -90,6 +90,3 @@ def test_parse_graph_spec_parallel_conditions():
         {"condition": "true_fn", "destination": "error_node"}
     ] 
 
-#if __name__ == "__main__":
-    #test_parse_graph_spec_conditions()
-    #test_parse_graph_spec_parallel_conditions()
