@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="langgraph-codegen",
-    version="v0.1.15",  # Increment version
+    version="v0.1.16",  # Increment version
     description="Generate graph code from DSL for LangGraph framework", 
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
@@ -12,7 +12,7 @@ setup(
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     package_data={
-        'langgraph_codegen': ['examples/*.graph'],
+        'langgraph_codegen': ['data/examples/*.graph'],
     },
     include_package_data=True,
     classifiers=[
@@ -28,5 +28,6 @@ setup(
     },
     install_requires=[
         'colorama>=0.4.6',
+        'rich>=13.3.1',
     ],
 )
