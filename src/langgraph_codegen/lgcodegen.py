@@ -2,20 +2,69 @@
 
 import sys
 import argparse
+import os
 from pathlib import Path
-from .gen_graph import gen_graph, validate_graph
+from langgraph_codegen.gen_graph import gen_graph, validate_graph
+
+def get_example_path(filename):
+    """Get the full path to an example file."""
+    try:
+        # Get the package directory
+        import langgraph_codegen
+        package_dir = Path(os.path.dirname(langgraph_codegen.__file__))
+        example_path = package_dir / 'examples' / filename
+        
+        if example_path.exists():
+            return str(example_path)
+        return None
+    except Exception as e:
+        print(f"Error finding example: {str(e)}", file=sys.stderr)
+        return None
+
+def list_examples():
+    """List all available example graphs."""
+    try:
+        import langgraph_codegen
+        package_dir = Path(os.path.dirname(langgraph_codegen.__file__))
+        examples_dir = package_dir / 'examples'
+        
+        if not examples_dir.exists():
+            print("Examples directory not found", file=sys.stderr)
+            return
+            
+        graph_files = [f.name for f in examples_dir.glob('*.graph')]
+        
+        print("Available example graphs:")
+        for file in graph_files:
+            print(f"  {file}")
+        print("\nTo use an example, run:")
+        print("  lgcodegen my_graph example.graph")
+    except Exception as e:
+        print(f"Error listing examples: {str(e)}", file=sys.stderr)
 
 def main():
-    if len(sys.argv) != 3:
-        print("Usage: lgcodegen <graph_name> <spec_file>", file=sys.stderr)
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Generate LangGraph code from graph specification")
+    parser.add_argument('graph_name', help='Name of the compiled graph')
+    parser.add_argument('spec_file', help='Path to the graph specification file')
+    parser.add_argument('--list-examples', action='store_true', help='List available example graphs')
 
-    graph_name = sys.argv[1]
-    spec_file = sys.argv[2]
+    args = parser.parse_args()
+
+    if args.list_examples:
+        list_examples()
+        return
 
     try:
+        # First try to find the file as an example
+        example_path = get_example_path(args.spec_file)
+        
+        if example_path:
+            file_path = example_path
+        else:
+            file_path = args.spec_file
+            
         # Read the specification file
-        with open(spec_file, 'r') as f:
+        with open(file_path, 'r') as f:
             graph_spec = f.read()
         
         # Validate the graph specification
@@ -25,15 +74,12 @@ def main():
             print(f"\nSuggested solutions:\n{validation_result['solution']}", file=sys.stderr)
             sys.exit(1)
 
-        # Generate the graph code
-        result = gen_graph(graph_name, graph_spec)
-        print(result)
+        # Generate the graph code and print result
+        print(gen_graph(args.graph_name, graph_spec))
         
     except FileNotFoundError:
-        print(f"Error: File not found: {spec_file}", file=sys.stderr)
-        sys.exit(1)
-    except PermissionError:
-        print(f"Error: Permission denied reading file: {spec_file}", file=sys.stderr)
+        print(f"Error: File not found: {args.spec_file}", file=sys.stderr)
+        print("Use --list-examples to see available example graphs", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
         print(f"Error: {str(e)}", file=sys.stderr)

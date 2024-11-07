@@ -7,8 +7,6 @@ To generate a graph from text:
 lgcodegen my_graph simple.graph
 ```
 
-
-
 ##### Use function
 
 Generates python code for parts of langgraph

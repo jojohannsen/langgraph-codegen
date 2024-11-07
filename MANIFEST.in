@@ -1,2 +1,2 @@
 include README.md
-include examples/*.graph
+recursive-include src/langgraph_codegen/examples *.graph
