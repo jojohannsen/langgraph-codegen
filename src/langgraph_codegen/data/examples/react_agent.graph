@@ -1,0 +1,7 @@
+# Agent with tools
+START(State) => call_model
+
+call_model
+  should_call_tool => tool_node
+
+tool_node => call_model

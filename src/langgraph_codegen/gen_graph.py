@@ -212,11 +212,13 @@ def {node_name}(state: {state_type}, *, config:Optional[RunnableConfig] = None):
     return {{ 'states': state['states'] + ['{node_name}'], 'last_state': '{node_name}' }}
 """
 
-def gen_nodes(graph):
+# graph parameter is result of validate_graph
+def gen_nodes(graph: dict):
     nodes = []
+    print("GRAPH:::", graph)
     for node_name, node_data in graph.items():
         if node_name != "START":
-            state_type = node_data.get('state_type', 'default')
+            state_type = node_data.get('state', 'default')
             nodes.append(gen_node(node_name, state_type))
     return "\n".join(nodes)
 

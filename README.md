@@ -4,10 +4,20 @@
 To generate a graph from text:
 
 ```bash
-lgcodegen my_graph simple.graph
+# View available example graphs
+lgcodegen --list
+
+# View contents of a graph file
+lgcodegen simple.graph
+
+# Generate different components
+lgcodegen --graph simple.graph    # Generate graph code
+lgcodegen --nodes simple.graph    # Generate node code
+lgcodegen --conditions simple.graph    # Generate condition code
+lgcodegen --state simple.graph    # Generate state code
 ```
 
-##### Use function
+##### How to use gen_graph function
 
 Generates python code for parts of langgraph
 

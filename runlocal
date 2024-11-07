@@ -1,0 +1,3 @@
+set -x
+pip uninstall langgraph-codegen
+pip install -e .

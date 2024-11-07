@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="langgraph-codegen",
-    version="v0.1.14",  # Increment version
+    version="v0.1.15",  # Increment version
     description="Generate graph code from DSL for LangGraph framework", 
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
@@ -26,4 +26,7 @@ setup(
             'lgcodegen=langgraph_codegen.lgcodegen:main',
         ],
     },
+    install_requires=[
+        'colorama>=0.4.6',
+    ],
 )
