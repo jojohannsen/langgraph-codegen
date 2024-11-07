@@ -12,7 +12,7 @@ def get_example_path(filename):
         # Get the package directory
         import langgraph_codegen
         package_dir = Path(os.path.dirname(langgraph_codegen.__file__))
-        example_path = package_dir / 'examples' / filename
+        example_path = package_dir / 'data' / 'examples' / filename
         
         if example_path.exists():
             return str(example_path)
@@ -26,14 +26,18 @@ def list_examples():
     try:
         import langgraph_codegen
         package_dir = Path(os.path.dirname(langgraph_codegen.__file__))
-        examples_dir = package_dir / 'examples'
+        examples_dir = package_dir / 'data' / 'examples'
         
         if not examples_dir.exists():
-            print("Examples directory not found", file=sys.stderr)
+            print(f"Examples directory not found at {examples_dir}", file=sys.stderr)
             return
             
         graph_files = [f.name for f in examples_dir.glob('*.graph')]
         
+        if not graph_files:
+            print("No .graph files found in examples directory", file=sys.stderr)
+            return
+            
         print("Available example graphs:")
         for file in graph_files:
             print(f"  {file}")
@@ -44,15 +48,24 @@ def list_examples():
 
 def main():
     parser = argparse.ArgumentParser(description="Generate LangGraph code from graph specification")
-    parser.add_argument('graph_name', help='Name of the compiled graph')
-    parser.add_argument('spec_file', help='Path to the graph specification file')
+    
+    # Add --list-examples as an optional argument
     parser.add_argument('--list-examples', action='store_true', help='List available example graphs')
+    
+    # These arguments are only required if --list-examples is not used
+    parser.add_argument('graph_name', nargs='?', help='Name of the compiled graph')
+    parser.add_argument('spec_file', nargs='?', help='Path to the graph specification file')
 
     args = parser.parse_args()
 
     if args.list_examples:
         list_examples()
         return
+
+    # If not listing examples, we need both arguments
+    if not args.graph_name or not args.spec_file:
+        parser.print_help()
+        sys.exit(1)
 
     try:
         # First try to find the file as an example

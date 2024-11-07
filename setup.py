@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="langgraph-codegen",
-    version="v0.1.13",
+    version="v0.1.14",  # Increment version
     description="Generate graph code from DSL for LangGraph framework", 
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
@@ -14,7 +14,7 @@ setup(
     package_data={
         'langgraph_codegen': ['examples/*.graph'],
     },
-    include_package_data=True,  # This tells setuptools to include files from MANIFEST.in
+    include_package_data=True,
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
