@@ -12,7 +12,8 @@ if [ "$is_ok" = "y" ]; then
     mv setup2.py setup.py
     echo "File setup2.py has been moved to setup.py"
     git add setup.py
-    git commit -m "updates"
+    read -p "Commit message: " commit_message
+    git commit -m $commit_message
     git push origin main
     git tag $version
     git push origin $version

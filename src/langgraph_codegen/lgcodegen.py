@@ -32,6 +32,8 @@ def get_example_path(filename):
         # Get the package directory
         import langgraph_codegen
         package_dir = Path(os.path.dirname(langgraph_codegen.__file__))
+        if '.' not in filename:
+            filename = filename + '.graph'
         example_path = package_dir / 'data' / 'examples' / filename
         
         if example_path.exists():
@@ -54,7 +56,7 @@ def list_examples():
         name = example.split('/')[-1]  # Get just the filename
         print(f" {Fore.GREEN}{name}{Style.RESET_ALL}")
     
-    print(f"\n{Fore.LIGHTBLACK_EX}View a graph with: {Fore.BLUE}lgcodegen --example <graph_name>{Style.RESET_ALL}\n")
+    print(f"\n{Fore.LIGHTBLACK_EX}View a graph with: {Fore.BLUE}lgcodegen <graph_name>{Style.RESET_ALL}\n")
 
 def show_example_content(example_name):
     """Show the content of an example graph file."""
