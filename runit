@@ -13,7 +13,7 @@ if [ "$is_ok" = "y" ]; then
     echo "File setup2.py has been moved to setup.py"
     git add setup.py
     read -p "Commit message: " commit_message
-    git commit -m $commit_message
+    git commit -m "$commit_message"
     git push origin main
     git tag $version
     git push origin $version

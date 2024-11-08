@@ -13,15 +13,16 @@ from rich.syntax import Syntax
 init()
 
 
-def print_python_code(code_string):
+def print_python_code(code_string, show_line_numbers=False):
     """
     Print Python code with syntax highlighting to the terminal
     
     Args:
         code_string (str): The Python code to print
+        show_line_numbers (bool): Whether to show line numbers in the output
     """
     # Create a Syntax object with Python lexer
-    syntax = Syntax(code_string, "python", theme="monokai", line_numbers=True)
+    syntax = Syntax(code_string, "python", theme="monokai", line_numbers=show_line_numbers)
     
     # Print the highlighted code
     rprint(syntax)
@@ -45,7 +46,7 @@ def get_example_path(filename):
 
 def list_examples():
     """List all available example graph files."""
-    print(f"\n{Fore.LIGHTBLACK_EX}Available example graphs:{Style.RESET_ALL}\n")
+    print(f"\n{Fore.LIGHTBLACK_EX}Example graphs (these are text files):{Style.RESET_ALL}\n")
     
     examples = get_available_examples()
     if not examples:
@@ -54,7 +55,7 @@ def list_examples():
         
     for example in sorted(examples):
         name = example.split('/')[-1]  # Get just the filename
-        print(f" {Fore.GREEN}{name}{Style.RESET_ALL}")
+        print(f" {Fore.BLUE}{name}{Style.RESET_ALL}")
     
     print(f"\n{Fore.LIGHTBLACK_EX}View a graph with: {Fore.BLUE}lgcodegen <graph_name>{Style.RESET_ALL}\n")
 
@@ -103,6 +104,7 @@ def main():
     parser.add_argument('--nodes', action='store_true', help='Generate node code')
     parser.add_argument('--conditions', action='store_true', help='Generate condition code')
     parser.add_argument('--state', action='store_true', help='Generate state code')
+    parser.add_argument('-l', '--line-numbers', action='store_true', help='Show line numbers in generated code')
     
     # Single required argument
     parser.add_argument('graph_file', nargs='?', help='Path to the graph specification file')
@@ -145,16 +147,16 @@ def main():
         # Generate the requested code
         graph = validate_graph(graph_spec)
         if args.graph:
-            print_python_code(gen_graph(graph_name, graph_spec))
+            print_python_code(gen_graph(graph_name, graph_spec), args.line_numbers)
         if args.nodes:
             if 'graph' in graph:
-                print_python_code(gen_nodes(graph['graph']))
+                print_python_code(gen_nodes(graph['graph']), args.line_numbers)
         if args.conditions:
             if 'graph' in graph:
-                print_python_code(gen_conditions(graph_spec))
+                print_python_code(gen_conditions(graph_spec), args.line_numbers)
         if args.state:
             if 'graph' in graph:
-                print_python_code(gen_state(graph_spec))
+                print_python_code(gen_state(graph_spec), args.line_numbers)
         if 'errors' in graph:
             print(f"{Fore.RED}Errors in graph specification: \n\n{graph['errors']}\n\n{Fore.RESET}", file=sys.stderr)
             

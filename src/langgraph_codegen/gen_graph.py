@@ -215,7 +215,6 @@ def {node_name}(state: {state_type}, *, config:Optional[RunnableConfig] = None):
 # graph parameter is result of validate_graph
 def gen_nodes(graph: dict):
     nodes = []
-    print("GRAPH:::", graph)
     for node_name, node_data in graph.items():
         if node_name != "START":
             state_type = node_data.get('state', 'default')
@@ -260,7 +259,6 @@ class {state_class}(TypedDict):
     states: Annotated[list[str], add_messages]
     last_state: str
 """
-    print("MOCK_STATE RESULT:::", result, ":::END_OF_RESULT:::")
     return result
 
 def gen_state(graph_spec):

@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="langgraph-codegen",
-    version="v0.1.18",  # Increment version
+    version="v0.1.19",  # Increment version
     description="Generate graph code from DSL for LangGraph framework", 
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
