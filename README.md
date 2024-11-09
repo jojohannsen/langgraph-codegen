@@ -15,6 +15,10 @@ lgcodegen --graph simple.graph    # Generate graph code
 lgcodegen --nodes simple.graph    # Generate node code
 lgcodegen --conditions simple.graph    # Generate condition code
 lgcodegen --state simple.graph    # Generate state code
+
+# complete running graph with mocked nodes, state, conditions
+lgcodegen simple --code > simple.py
+python simple.py
 ```
 
 ##### How to use gen_graph function

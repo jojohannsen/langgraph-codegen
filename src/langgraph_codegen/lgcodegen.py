@@ -104,6 +104,7 @@ def main():
     parser.add_argument('--nodes', action='store_true', help='Generate node code')
     parser.add_argument('--conditions', action='store_true', help='Generate condition code')
     parser.add_argument('--state', action='store_true', help='Generate state code')
+    parser.add_argument('--code', action='store_true', help='Generate complete runnable script')
     parser.add_argument('-l', '--line-numbers', action='store_true', help='Show line numbers in generated code')
     
     # Single required argument
@@ -130,7 +131,7 @@ def main():
             graph_spec = f.read()
 
         # If no generation flags are set, just show the file contents
-        if not (args.graph or args.nodes or args.conditions or args.state):
+        if not (args.graph or args.nodes or args.conditions or args.state or args.code):
             print(f"{Fore.BLUE}{graph_spec}{Style.RESET_ALL}")
             return
             
@@ -146,6 +147,51 @@ def main():
 
         # Generate the requested code
         graph = validate_graph(graph_spec)
+        
+        if args.code:
+            # Collect all code components
+            complete_code = []
+            
+            # Add imports
+            complete_code.append("""from typing import Dict, TypedDict, Annotated, Optional
+from langgraph.graph import StateGraph, Graph
+from langchain_core.messages.tool import ToolMessage
+from langchain_core.runnables.config import RunnableConfig
+from operator import itemgetter
+""")
+            
+            # Add components in specific order
+            if 'graph' in graph:
+                complete_code.append(gen_state(graph_spec))
+                complete_code.append(gen_nodes(graph['graph']))
+                complete_code.append(gen_conditions(graph_spec))
+                complete_code.append(gen_graph(graph_name, graph_spec))
+                
+                # Add main section
+                main_section = f"""
+import random
+def random_one_or_zero():
+    return random.choice([False, True])
+
+if __name__ == "__main__":
+    import sys
+    
+    # Create the graph
+    workflow = {graph_name}
+    
+    # Run the graph
+    config = {{"last_state": "starting..."}}
+    for output in workflow.stream(config):
+        print(f"\\n    {{output}}\\n")
+"""
+                complete_code.append(main_section)
+                
+                # Join all code components and print
+                full_code = "\n\n".join(complete_code)
+                print_python_code(full_code, args.line_numbers)
+                return
+                
+        # Handle individual component generation as before
         if args.graph:
             print_python_code(gen_graph(graph_name, graph_spec), args.line_numbers)
         if args.nodes:

@@ -209,6 +209,7 @@ def true_fn(state):
 def gen_node(node_name, state_type):
     return f"""
 def {node_name}(state: {state_type}, *, config:Optional[RunnableConfig] = None):
+    print(f'NODE: {node_name}')
     return {{ 'states': state['states'] + ['{node_name}'], 'last_state': '{node_name}' }}
 """
 
@@ -236,7 +237,9 @@ def random_one_or_zero():
 def gen_condition(condition, state_type):
     return f"""
 def {condition}(state: {state_type}) -> bool:
-    return random_one_or_zero()
+    result = random_one_or_zero()
+    print(f'CONDITION: {condition}. Result: {{result}}')
+    return result
 """
 
 def gen_conditions(graph_spec):
