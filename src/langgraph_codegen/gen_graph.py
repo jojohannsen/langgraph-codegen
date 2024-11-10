@@ -218,7 +218,7 @@ def gen_node(node_name, state_type):
     return f"""
 def {node_name}(state: {state_type}, *, config:Optional[RunnableConfig] = None):
     print(f'NODE: {node_name}')
-    return {{ 'states': state['states'] + ['{node_name}'], 'last_state': '{node_name}' }}
+    return {{ 'nodes_visited': '{node_name}', 'counter': state['counter'] + 1 }}
 """
 
 # graph parameter is result of validate_graph
@@ -237,7 +237,6 @@ def find_conditions(node_dict):
         if 'true_fn' != edge["condition"]:
             conditions.append(edge["condition"])
     return conditions
-
 
 def random_one_or_zero():
     return random.choice([False, True])
@@ -264,14 +263,16 @@ def mock_state(state_class):
     result = f"""
 # GENERATED CODE: mock graph state
 from typing import Annotated, TypedDict
-from langgraph.graph.message import add_messages
+
+def add_str_to_list(a=None, b=""):
+    return (a if a is not None else []) + ([b] if not isinstance(b, list) else b)
 
 class {state_class}(TypedDict):
-    states: Annotated[list[str], add_messages]
-    last_state: str
+    nodes_visited: Annotated[list[str], add_str_to_list]
+    counter: int
 
 def initial_state_{state_class}():
-    return {{ 'states': [], 'last_state': 'START' }}
+    return {{ 'nodes_visited': [], 'counter': 0 }}
 """
     return result
 

@@ -220,9 +220,7 @@ def main():
 
         # Generate the requested code
         graph = validate_graph(graph_spec)
-        print(f"{graph=}")
-        state_class = graph['graph']['START']['state']
-        print(f"{state_class=}")
+        state_class = graph.get('graph', {}).get('START', {}).get('state')
         if args.code:
             # Get graph name from file name (without extension)
             graph_name = Path(args.graph_file).stem
@@ -257,9 +255,7 @@ from operator import itemgetter
                 complete_code.append(gen_state(graph_spec))
                 complete_code.append(gen_nodes(graph['graph']))
                 complete_code.append(gen_conditions(graph_spec))
-                print("calling gen_graph")
                 ggresult = gen_graph(graph_name, graph_spec)
-                print(f"{ggresult=}")
                 complete_code.append(ggresult)
                 
                 # Add main section
@@ -276,9 +272,10 @@ if __name__ == "__main__":
     config = RunnableConfig(configurable={{"thread_id": "1"}})
     for output in workflow.stream(initial_state_{state_class}(), config=config):
         print(f"\\n    {{output}}\\n")
+    print("DONE STREAMING, final state:")
+    print(workflow.get_state(config))
 """
                 complete_code.append(main_section)
-                print("DONE CODING")
                 # Join all code components and write to file
                 full_code = "\n\n".join(complete_code)
                 output_file.write_text(full_code)
