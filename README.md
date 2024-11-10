@@ -4,22 +4,22 @@
 To generate a graph from text:
 
 ```bash
-# View available example graphs
+# View available example graphs, 'plan_and_execute' is one of the examples
 lgcodegen --list
 
 # View contents of a graph file
-lgcodegen simple.graph
+lgcodegen plan_and_execute
 
 # Generate different components
-lgcodegen --graph simple.graph    # Generate graph code
-lgcodegen --nodes simple.graph    # Generate node code
-lgcodegen --conditions simple.graph    # Generate condition code
-lgcodegen --state simple.graph    # Generate state code
+lgcodegen --graph plan_and_execute    # Generate graph code
+lgcodegen --nodes plan_and_execute    # Generate node code
+lgcodegen --conditions plan_and_execute    # Generate condition code
+lgcodegen --state plan_and_execute    # Generate state code
 
 # complete running graph with mocked nodes, state, conditions
-# Runnable code in: simple/simple.py
-lgcodegen simple --code
-python simple/simple.py
+# Runnable code in: plan_and_execute/plan_and_execute.py
+lgcodegen plan_and_execute --code
+python plan_and_execute/plan_and_execute.py
 ```
 
 ##### How to use gen_graph function
