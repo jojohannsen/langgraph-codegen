@@ -8,6 +8,9 @@ from langgraph_codegen.gen_graph import gen_graph, gen_nodes, gen_state,gen_cond
 from colorama import init, Fore, Style
 from rich import print as rprint
 from rich.syntax import Syntax
+import shutil
+from typing import List, Set
+from langgraph_codegen.repl import GraphDesignREPL
 
 # Initialize colorama (needed for Windows)
 init()
@@ -95,8 +98,28 @@ def get_available_examples():
         print(f"{Fore.RED}Error listing examples: {str(e)}{Style.RESET_ALL}", file=sys.stderr)
         return []
 
+def ensure_graph_folder(graph_name: str) -> Path:
+    """Create a folder for the graph if it doesn't exist.
+    
+    Args:
+        graph_name (str): Name of the graph
+        
+    Returns:
+        Path: Path to the graph folder
+    """
+    folder = Path(graph_name)
+    if not folder.exists():
+        print(f"{Fore.GREEN}Creating folder {graph_name}{Style.RESET_ALL}")
+        folder.mkdir(parents=True)
+    return folder
+
 def main():
     parser = argparse.ArgumentParser(description="Generate LangGraph code from graph specification")
+    
+    # repl and code display options
+    parser.add_argument('-i', '--interactive', '--repl', action='store_true', 
+                       help='Start interactive graph design REPL', dest='interactive')
+    parser.add_argument('-l', '--line-numbers', action='store_true', help='Show line numbers in generated code')
     
     # Add the options
     parser.add_argument('--list', action='store_true', help='List available example graphs')
@@ -104,13 +127,34 @@ def main():
     parser.add_argument('--nodes', action='store_true', help='Generate node code')
     parser.add_argument('--conditions', action='store_true', help='Generate condition code')
     parser.add_argument('--state', action='store_true', help='Generate state code')
-    parser.add_argument('--code', action='store_true', help='Generate complete runnable script')
-    parser.add_argument('-l', '--line-numbers', action='store_true', help='Show line numbers in generated code')
-    
+    parser.add_argument('--code', action='store_true', help='Generate runnable graph')
+     
     # Single required argument
     parser.add_argument('graph_file', nargs='?', help='Path to the graph specification file')
 
     args = parser.parse_args()
+
+    # Handle REPL mode - now requires graph_file
+    if args.interactive:
+        if not args.graph_file:
+            print(f"{Fore.RED}Error: Interactive mode requires a graph file{Style.RESET_ALL}")
+            sys.exit(1)
+            
+        # Get the graph file content
+        example_path = get_example_path(args.graph_file)
+        file_path = example_path if example_path else args.graph_file
+        
+        try:
+            with open(file_path, 'r') as f:
+                graph_spec = f.read()
+        except FileNotFoundError:
+            print(f"{Fore.RED}Error: File not found: {args.graph_file}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}Use --list-examples to see available examples{Style.RESET_ALL}")
+            sys.exit(1)
+            
+        repl = GraphDesignREPL(args.graph_file, graph_spec)
+        repl.run()
+        return
 
     if args.list:
         list_examples()
@@ -149,6 +193,20 @@ def main():
         graph = validate_graph(graph_spec)
         
         if args.code:
+            # Get graph name from file name (without extension)
+            graph_name = Path(args.graph_file).stem
+            
+            # Create folder and determine output file path
+            graph_folder = ensure_graph_folder(graph_name)
+            output_file = graph_folder / f"{graph_name}.py"
+            
+            # Check if file exists and prompt for overwrite
+            if output_file.exists():
+                response = input(f"{Fore.GREEN}File {output_file} exists. Overwrite? (y/n): {Style.RESET_ALL}")
+                if response.lower() != 'y':
+                    print(f"{Fore.LIGHTRED_EX}Code generation cancelled.{Style.RESET_ALL}")
+                    sys.exit(0)
+            
             # Collect all code components
             complete_code = []
             
@@ -187,9 +245,10 @@ if __name__ == "__main__":
 """
                 complete_code.append(main_section)
                 
-                # Join all code components and print
+                # Join all code components and write to file
                 full_code = "\n\n".join(complete_code)
-                print_python_code(full_code, args.line_numbers)
+                output_file.write_text(full_code)
+                print(f"{Fore.GREEN}Generated {output_file}{Style.RESET_ALL}")
                 return
                 
         # Handle individual component generation as before
