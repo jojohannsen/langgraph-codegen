@@ -165,7 +165,8 @@ from operator import itemgetter
                 complete_code.append(gen_state(graph_spec))
                 complete_code.append(gen_nodes(graph['graph']))
                 complete_code.append(gen_conditions(graph_spec))
-                complete_code.append(gen_graph(graph_name, graph_spec))
+                ggresult = gen_graph(graph_name, graph_spec)
+                complete_code.append(ggresult)
                 
                 # Add main section
                 main_section = f"""

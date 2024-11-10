@@ -5,6 +5,7 @@ process_input => validate_data
 validate_data
   is_valid => transform_data
   is_invalid => handle_error
+  => END
 
 transform_data
   => store_result

@@ -1,6 +1,7 @@
 import re
 import random
 import sys
+from textwrap import dedent
 from typing import Dict, Any, Optional
 
 # Add these constants near the top of the file, after the imports
@@ -8,6 +9,7 @@ ERROR_MISSING_IMPORTS = "Missing required imports for graph compilation"
 ERROR_START_NODE_NOT_FOUND = "START node not found at beginning of graph specification"
 
 def transform_graph_spec(graph_spec: str) -> str:
+    graph_spec = dedent(graph_spec)
     lines = graph_spec.split("\n")
     transformed_lines = []
 
@@ -43,7 +45,13 @@ def parse_string(input_string):
 
 
 def parse_graph_spec(graph_spec):
+    # transform graph into a uniform format
+    # node_name
+    #   => destination
+    # node_name
+    #   condition_name => destination
     graph_spec = transform_graph_spec(graph_spec)
+
     TRUE_FN = "true_fn"
     graph = {}
     current_node = None
@@ -122,7 +130,8 @@ def mk_conditions(node_name, node_dict):
     if condition != "true_fn":
         if len(edges) > 1:
             function_body.append("    else:")
-            function_body.append('        raise ValueError("No destination")')
+            function_body.append("        # destination not found, default to END")
+            function_body.append('        return END')
         else:
             function_body.append("    return END")
     function_body.append("")
@@ -185,7 +194,7 @@ def mk_conditional_edges(graph_name, node_name, node_dict):
         # If there's a single edge with a condition, dict needs END: END
         if len(edges) == 1 and edges[0]["condition"] != "true_fn":
             dict_entries += ", END: END"
-        node_dict_str = f"{node_name}_conditional_edges = {{{dict_entries}}}"
+        node_dict_str = f"{node_name}_conditional_edges = {{ {dict_entries} }}"
         multiple = any("," in edge["destination"] for edge in edges)
         if multiple:
             # not really understanding, but it seems that in this case, we just have a list of
@@ -198,8 +207,7 @@ def mk_conditional_edges(graph_name, node_name, node_dict):
             node_dict_str = f"{node_name}_conditional_edges = {list(s)}"
 
         # Create the add_conditional_edges call
-        add_edges_str = f"{graph_name}.add_conditional_edges('{node_name}', after_{node_name}, {node_name}_conditional_edges)"
-
+        add_edges_str = f"{graph_name}.add_conditional_edges( '{node_name}', after_{node_name}, {node_name}_conditional_edges )"
         return f"{node_dict_str}\n{add_edges_str}\n"
 
 
@@ -278,7 +286,10 @@ def gen_graph(graph_name, graph_spec, compile_args=None):
     graph_setup = ""
 
     state_type = graph[start_node]['state']
-    imports = """from langgraph.graph import START, END, StateGraph""" 
+    imports = """from langgraph.graph import START, END, StateGraph"""
+    if state_type == "MessageGraph":
+        imports += """
+from langgraph.graph import MessageGraph""" 
     graph_setup += f"{graph_name} = StateGraph({state_type})\n"
     if state_type == "MessageGraph":
         graph_setup = f"{graph_name} = MessageGraph()\n"
@@ -317,43 +328,6 @@ def gen_graph(graph_name, graph_spec, compile_args=None):
         + f"{graph_name} = {graph_name}.compile({compile_args})"
     )
 
-def normalize_indentation(graph_spec: str) -> str:
-    """
-    Normalize indentation in graph_spec by finding minimum indentation 
-    and removing it from all lines.
-    
-    Args:
-        graph_spec: String containing the graph specification
-        
-    Returns:
-        String with normalized indentation
-    """
-    # Split into lines and filter out empty lines
-    lines = [line for line in graph_spec.split('\n') if line.strip()]
-    
-    # Find minimum indentation of non-empty lines
-    min_indent = float('inf')
-    for line in lines:
-        # Count leading spaces for non-empty lines
-        leading_spaces = len(line) - len(line.lstrip())
-        if leading_spaces < min_indent:
-            min_indent = leading_spaces
-    
-    # If no indentation found or min_indent is 0, return original
-    if min_indent == 0 or min_indent == float('inf'):
-        return graph_spec
-        
-    # Remove minimum indentation from all lines
-    normalized_lines = []
-    for line in graph_spec.split('\n'):
-        if line.strip():  # Only process non-empty lines
-            normalized_lines.append(line[min_indent:])
-        else:
-            normalized_lines.append(line)
-            
-    return '\n'.join(normalized_lines)
-
-
 def validate_graph(graph_spec: str) -> Dict[str, Any]:
     """
     Validate a graph specification and return any validation errors.
@@ -370,7 +344,7 @@ def validate_graph(graph_spec: str) -> Dict[str, Any]:
     solutions = []
     
     # Normalize indentation first
-    graph_spec = normalize_indentation(graph_spec)
+    graph_spec = dedent(graph_spec)
     
     # Check for required imports, below does not work,
     # if "langgraph.graph" not in sys.modules:
