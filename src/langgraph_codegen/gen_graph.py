@@ -269,6 +269,9 @@ from langgraph.graph.message import add_messages
 class {state_class}(TypedDict):
     states: Annotated[list[str], add_messages]
     last_state: str
+
+def initial_state_{state_class}():
+    return {{ 'states': [], 'last_state': 'START' }}
 """
     return result
 
@@ -286,10 +289,14 @@ def gen_graph(graph_name, graph_spec, compile_args=None):
     graph_setup = ""
 
     state_type = graph[start_node]['state']
-    imports = """from langgraph.graph import START, END, StateGraph"""
+    imports = """from langgraph.graph import START, END, StateGraph
+from langgraph.checkpoint.memory import MemorySaver
+import sqlite3"""
     if state_type == "MessageGraph":
         imports += """
 from langgraph.graph import MessageGraph""" 
+
+    graph_setup += f"checkpoint_saver = MemorySaver()\n"
     graph_setup += f"{graph_name} = StateGraph({state_type})\n"
     if state_type == "MessageGraph":
         graph_setup = f"{graph_name} = MessageGraph()\n"
@@ -319,6 +326,9 @@ from langgraph.graph import MessageGraph"""
             node_code.append(conditional_edges)
 
     compile_args = compile_args if compile_args else ""
+    if compile_args:
+        compile_args += ", "
+    compile_args += f"checkpointer=checkpoint_saver"
     return (
         initial_comment
         + imports + "\n\n"

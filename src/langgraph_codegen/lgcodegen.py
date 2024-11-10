@@ -64,6 +64,23 @@ def list_examples():
 
 def show_example_content(example_name):
     """Show the content of an example graph file."""
+    # Get base name (strip everything after the '.')
+    base_name = example_name.split('.')[0]
+    
+    # Check for local copy first
+    local_path = Path(base_name) / f"{base_name}.txt"
+    if local_path.exists():
+        print(f"{Fore.GREEN}Using local copy...{Style.RESET_ALL}")
+        try:
+            with open(local_path, 'r') as f:
+                content = f.read()
+            print(f"{Fore.BLUE}{content}{Style.RESET_ALL}")
+            return
+        except Exception as e:
+            print(f"{Fore.RED}Error reading local copy: {str(e)}{Style.RESET_ALL}", file=sys.stderr)
+            sys.exit(1)
+    
+    # If no local copy, check examples
     example_path = get_example_path(example_name)
     if not example_path:
         print(f"{Fore.RED}Error: Example '{example_name}' not found{Style.RESET_ALL}", file=sys.stderr)
@@ -112,6 +129,18 @@ def ensure_graph_folder(graph_name: str) -> Path:
         print(f"{Fore.GREEN}Creating folder {graph_name}{Style.RESET_ALL}")
         folder.mkdir(parents=True)
     return folder
+
+def save_graph_spec(folder: Path, graph_name: str, graph_spec: str):
+    """Save the graph specification to a text file.
+    
+    Args:
+        folder (Path): Folder to save the file in
+        graph_name (str): Name of the graph
+        graph_spec (str): Graph specification content
+    """
+    spec_file = folder / f"{graph_name}.txt"
+    spec_file.write_text(graph_spec)
+    print(f"{Fore.GREEN}Saved graph specification to {spec_file}{Style.RESET_ALL}")
 
 def main():
     parser = argparse.ArgumentParser(description="Generate LangGraph code from graph specification")
@@ -191,12 +220,14 @@ def main():
 
         # Generate the requested code
         graph = validate_graph(graph_spec)
-        
+        print(f"{graph=}")
+        state_class = graph['graph']['START']['state']
+        print(f"{state_class=}")
         if args.code:
             # Get graph name from file name (without extension)
             graph_name = Path(args.graph_file).stem
             
-            # Create folder and determine output file path
+            # Create folder and determine output file paths
             graph_folder = ensure_graph_folder(graph_name)
             output_file = graph_folder / f"{graph_name}.py"
             
@@ -206,6 +237,9 @@ def main():
                 if response.lower() != 'y':
                     print(f"{Fore.LIGHTRED_EX}Code generation cancelled.{Style.RESET_ALL}")
                     sys.exit(0)
+            
+            # Save the graph specification
+            save_graph_spec(graph_folder, graph_name, graph_spec)
             
             # Collect all code components
             complete_code = []
@@ -223,7 +257,9 @@ from operator import itemgetter
                 complete_code.append(gen_state(graph_spec))
                 complete_code.append(gen_nodes(graph['graph']))
                 complete_code.append(gen_conditions(graph_spec))
+                print("calling gen_graph")
                 ggresult = gen_graph(graph_name, graph_spec)
+                print(f"{ggresult=}")
                 complete_code.append(ggresult)
                 
                 # Add main section
@@ -237,14 +273,12 @@ if __name__ == "__main__":
     
     # Create the graph
     workflow = {graph_name}
-    
-    # Run the graph
-    config = {{"last_state": "starting..."}}
-    for output in workflow.stream(config):
+    config = RunnableConfig(configurable={{"thread_id": "1"}})
+    for output in workflow.stream(initial_state_{state_class}(), config=config):
         print(f"\\n    {{output}}\\n")
 """
                 complete_code.append(main_section)
-                
+                print("DONE CODING")
                 # Join all code components and write to file
                 full_code = "\n\n".join(complete_code)
                 output_file.write_text(full_code)
