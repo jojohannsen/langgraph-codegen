@@ -152,7 +152,7 @@ def main():
             print(f"{Fore.YELLOW}Use --list-examples to see available examples{Style.RESET_ALL}")
             sys.exit(1)
             
-        repl = GraphDesignREPL(args.graph_file, graph_spec)
+        repl = GraphDesignREPL(args.graph_file, graph_spec, print_python_code)
         repl.run()
         return
 
