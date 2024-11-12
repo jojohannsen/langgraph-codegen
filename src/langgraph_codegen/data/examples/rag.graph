@@ -1,0 +1,6 @@
+# RAG without LCEL
+START(AgentState) => get_docs
+get_docs => format_docs
+format_docs => format_prompt
+format_prompt => generate
+generate => END

@@ -222,12 +222,22 @@ def {node_name}(state: {state_type}, *, config:Optional[RunnableConfig] = None):
 """
 
 # graph parameter is result of validate_graph
-def gen_nodes(graph: dict):
+def gen_nodes(graph: dict, found_functions: list[str] = None):
     nodes = []
+    # workaround python mutable default argument problem (list is mutable, and created once at function definition time)
+    if found_functions is None:
+        found_functions = []
+    found_function_names = [ff.function_name for ff in found_functions]
     for node_name, node_data in graph.items():
+        # get file name and function name from found_functions
+        l = [ff for ff in found_functions if ff.function_name == node_name]
         if node_name != "START":
-            state_type = node_data.get('state', 'default')
-            nodes.append(gen_node(node_name, state_type))
+            if len(l) == 1:
+                file_name, function_name = l[0].file_path, l[0].function_name
+                nodes.append(f"from {file_name.split(".")[0]} import {function_name}")
+            else:
+                state_type = node_data.get('state', 'default')
+                nodes.append(gen_node(node_name, state_type))
     return "\n".join(nodes)
 
 def find_conditions(node_dict):
@@ -276,9 +286,13 @@ def initial_state_{state_class}():
 """
     return result
 
-def gen_state(graph_spec):
+def gen_state(graph_spec, state_class_file=None):
     graph, start_node = parse_graph_spec(graph_spec)
-    return mock_state(graph[start_node]["state"])
+    state_class = graph[start_node]["state"]
+    if state_class_file:
+        return f"from {state_class_file.split('.')[0]} import {state_class}"
+    else:
+        return mock_state(state_class)
 
 def gen_graph(graph_name, graph_spec, compile_args=None):
     if not graph_spec: return ""

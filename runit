@@ -4,14 +4,22 @@ echo "are changes (other than setup.py) committed? "
 VERSION=$(grep version setup.py | sed -E 's/.*version="([^"]+)".*/\1/')
 read -p "Current version: $VERSION, New version: " version
 echo "$VERSION, $version"
+
+# Update setup.py
 sed "s/$VERSION/$version/g" setup.py > setup2.py
 diff setup.py setup2.py
-read -p "This OK? (y/n) " is_ok
+read -p "setup.py changes OK? (y/n) " is_ok_setup
 
-if [ "$is_ok" = "y" ]; then
+# Update lgcodegen.py
+sed "s/$VERSION/$version/g" lgcodegen.py > lgcodegen2.py
+diff lgcodegen.py lgcodegen2.py
+read -p "lgcodegen.py changes OK? (y/n) " is_ok_lgcodegen
+
+if [ "$is_ok_setup" = "y" ] && [ "$is_ok_lgcodegen" = "y" ]; then
     mv setup2.py setup.py
-    echo "File setup2.py has been moved to setup.py"
-    git add setup.py
+    mv lgcodegen2.py lgcodegen.py
+    echo "Files have been updated"
+    git add setup.py lgcodegen.py
     read -p "Commit message: " commit_message
     git commit -m "$commit_message"
     git push origin main
@@ -19,6 +27,7 @@ if [ "$is_ok" = "y" ]; then
     git push origin $version
 else
     echo "Operation cancelled"
+    rm setup2.py lgcodegen2.py 2>/dev/null
 fi
 
 #python setup.py sdist bdist_wheel

@@ -9,12 +9,22 @@ from colorama import init, Fore, Style
 from rich import print as rprint
 from rich.syntax import Syntax
 import shutil
-from typing import List, Set
+from typing import List, Set, Optional
 from langgraph_codegen.repl import GraphDesignREPL
+from collections import namedtuple
+from typing_extensions import TypedDict
+
+# DO NOT EDIT, this is updated by runit script
+version="v0.1.26"
 
 # Initialize colorama (needed for Windows)
 init()
 
+# Define the named tuple at module level
+class NodeFunction(namedtuple('NodeFunction', ['function_name', 'file_path'])):
+    """Represents a function found in a Python file."""
+    def __repr__(self):
+        return f"{self.function_name} in {self.file_path}"
 
 def print_python_code(code_string, show_line_numbers=False):
     """
@@ -139,14 +149,163 @@ def save_graph_spec(folder: Path, graph_name: str, graph_spec: str):
         graph_spec (str): Graph specification content
     """
     spec_file = folder / f"{graph_name}.txt"
+    if spec_file.exists():
+        print(f"{Fore.BLUE}Graph specification file {spec_file} already exists{Style.RESET_ALL}")
+        return
     spec_file.write_text(graph_spec)
     print(f"{Fore.GREEN}Saved graph specification to {spec_file}{Style.RESET_ALL}")
 
+import inspect
+from importlib.util import spec_from_file_location, module_from_spec
+from pathlib import Path
+
+def find_functions_in_files(node_functions, python_files):
+    """
+    Finds specified function names in Python files by importing and inspecting the modules.
+    Returns list of NodeFunction named tuples where functions were found.
+    
+    Args:
+        node_functions (list): List of function names to search for
+        python_files (list): List of Python filenames to search in
+        
+    Returns:
+        list[NodeFunction]: List of NodeFunction(function_name, file_path) named tuples
+    """
+    found_functions = []
+    
+    for py_file in python_files:
+        try:
+            file_path = Path(py_file)
+            module_name = file_path.stem
+            
+            spec = spec_from_file_location(module_name, file_path)
+            if spec is None:
+                continue
+                
+            module = module_from_spec(spec)
+            spec.loader.exec_module(module)
+            
+            # Inspect all module members and add matches to results
+            for name, obj in inspect.getmembers(module):
+                if name in node_functions and callable(obj):
+                    found_functions.append(NodeFunction(
+                        function_name=name,
+                        file_path=py_file.split('/', 1)[-1]
+                    ))
+                    
+        except Exception as e:
+            print(f"Error processing {py_file}: {str(e)}")
+            continue
+            
+    return found_functions
+
+def find_class_in_files(class_name: str, python_files: List[str]) -> Optional[str]:
+    """
+    Finds specified class name in Python files by importing and inspecting the modules.
+    Returns the file path where the class was first found, or None if not found.
+    
+    Args:
+        class_name (str): Name of the class to search for
+        python_files (list): List of Python filenames to search in
+        
+    Returns:
+        Optional[str]: Path to file containing the class, or None if not found
+    """
+    for py_file in python_files:
+        try:
+            file_path = Path(py_file)
+            module_name = file_path.stem
+            
+            spec = spec_from_file_location(module_name, file_path)
+            if spec is None:
+                continue
+                
+            module = module_from_spec(spec)
+            spec.loader.exec_module(module)
+            
+            # Inspect all module members and return first match
+            for name, obj in inspect.getmembers(module):
+                if name == class_name and inspect.isclass(obj):
+                    return py_file.split('/', 1)[-1]
+                    
+        except Exception as e:
+            print(f"Error processing {py_file}: {str(e)}")
+            continue
+            
+    return None
+
+from typing import TypedDict, Type, get_type_hints
+
+def init_state(state_class: Type[TypedDict]) -> TypedDict:
+    """
+    Initialize any TypedDict subclass by prompting user for string fields.
+    Only processes str fields, preserving default empty values for other types.
+    
+    Args:
+        state_class: The TypedDict class to instantiate
+        
+    Returns:
+        An instance of the passed class with user-provided values for string fields
+    """
+    # Get the type hints to identify string fields
+    type_hints = get_type_hints(state_class)
+    
+    # Initialize with empty values based on types
+    state = {
+        field: [] if 'list' in str(type_).lower() else ''
+        for field, type_ in type_hints.items()
+    }
+    
+    # Process each field
+    print(f"Enter values for {state_class.__name__} fields (press Enter to skip):")
+    for field, type_hint in type_hints.items():
+        # Only process string fields
+        if type_hint == str:
+            user_input = input(f"{field}: ").strip()
+            state[field] = user_input
+    
+    return state
+
+INIT_STATE_FUNCTION = '''
+from typing import TypedDict, Type, get_type_hints
+
+def init_state(state_class: Type[TypedDict]) -> TypedDict:
+    """
+    Initialize any TypedDict subclass by prompting user for string fields.
+    Only processes str fields, preserving default empty values for other types.
+    
+    Args:
+        state_class: The TypedDict class to instantiate
+        
+    Returns:
+        An instance of the passed class with user-provided values for string fields
+    """
+    # Get the type hints to identify string fields
+    type_hints = get_type_hints(state_class)
+    
+    # Initialize with empty values based on types
+    state = {
+        field: [] if 'list' in str(type_).lower() else ''
+        for field, type_ in type_hints.items()
+    }
+    
+    # Process each field
+    print(f"Enter values for {state_class.__name__} fields (press Enter to skip):")
+    for field, type_hint in type_hints.items():
+        # Only process string fields
+        if type_hint == str:
+            user_input = input(f"{field}: ").strip()
+            state[field] = user_input
+    
+    return state
+'''
+
 def main():
+    print(f"LangGraph CodeGen {version}")
     parser = argparse.ArgumentParser(description="Generate LangGraph code from graph specification")
     
     # repl and code display options
-    parser.add_argument('-i', '--interactive', '--repl', action='store_true', 
+    parser.add_argument('-i', '--repl', action='store_true', 
                        help='Start interactive graph design REPL', dest='interactive')
     parser.add_argument('-l', '--line-numbers', action='store_true', help='Show line numbers in generated code')
     
@@ -159,7 +318,7 @@ def main():
     parser.add_argument('--code', action='store_true', help='Generate runnable graph')
      
     # Single required argument
-    parser.add_argument('graph_file', nargs='?', help='Path to the graph specification file')
+    parser.add_argument('graph_file', nargs='?', help='Path to the graph specification file or folder')
 
     args = parser.parse_args()
 
@@ -239,6 +398,23 @@ def main():
             # Save the graph specification
             save_graph_spec(graph_folder, graph_name, graph_spec)
             
+            # Names of all the node functions:
+            node_functions = [ node_name for node_name, _ in graph['graph'].items() if node_name != "START" ]
+            # Names for all the python files in graph_folder, except for {graph_name}.py
+            python_files = [ f"{graph_folder}/{f.name}" for f in graph_folder.glob('*.py') if f.stem != graph_name ]
+            if len(python_files):
+                print(f"Searching for node functions in {python_files}")
+                found_functions = find_functions_in_files(node_functions, python_files)
+            else:
+                found_functions = []
+
+            print(f"{Fore.BLUE}Found functions: {", ".join([ff.function_name for ff in found_functions])}{Style.RESET_ALL}")
+            print(f"Searching for state class '{state_class}' in {python_files}")
+            state_class_file = find_class_in_files(state_class, python_files)
+            if state_class_file:
+                print(f"{Fore.BLUE}Found state class '{state_class}' in {state_class_file}{Style.RESET_ALL}")
+            else:
+                print(f"{Fore.GREEN}State class '{state_class}' not found{Style.RESET_ALL}")
             # Collect all code components
             complete_code = []
             
@@ -252,17 +428,20 @@ from operator import itemgetter
             
             # Add components in specific order
             if 'graph' in graph:
-                complete_code.append(gen_state(graph_spec))
-                complete_code.append(gen_nodes(graph['graph']))
+                complete_code.append(gen_state(graph_spec, state_class_file))
+                complete_code.append(gen_nodes(graph['graph'], found_functions))
                 complete_code.append(gen_conditions(graph_spec))
                 ggresult = gen_graph(graph_name, graph_spec)
                 complete_code.append(ggresult)
                 
+                init_state = f"init_state({state_class})" if state_class_file else f"initial_state_{state_class}()"
                 # Add main section
                 main_section = f"""
 import random
 def random_one_or_zero():
     return random.choice([False, True])
+
+{INIT_STATE_FUNCTION}
 
 if __name__ == "__main__":
     import sys
@@ -270,7 +449,7 @@ if __name__ == "__main__":
     # Create the graph
     workflow = {graph_name}
     config = RunnableConfig(configurable={{"thread_id": "1"}})
-    for output in workflow.stream(initial_state_{state_class}(), config=config):
+    for output in workflow.stream({init_state}, config=config):
         print(f"\\n    {{output}}\\n")
     print("DONE STREAMING, final state:")
     print(workflow.get_state(config))
