@@ -15,7 +15,7 @@ from collections import namedtuple
 from typing_extensions import TypedDict
 
 # DO NOT EDIT, this is updated by runit script
-version="v0.1.26"
+version="v0.1.28"
 
 # Initialize colorama (needed for Windows)
 init()
@@ -94,7 +94,7 @@ def show_example_content(example_name):
     example_path = get_example_path(example_name)
     if not example_path:
         print(f"{Fore.RED}Error: Example '{example_name}' not found{Style.RESET_ALL}", file=sys.stderr)
-        print(f"{Fore.YELLOW}Use --list-examples to see available examples{Style.RESET_ALL}", file=sys.stderr)
+        print(f"{Fore.YELLOW}Use --list to see available examples{Style.RESET_ALL}", file=sys.stderr)
         sys.exit(1)
     
     try:
@@ -478,7 +478,7 @@ if __name__ == "__main__":
             
     except FileNotFoundError:
         print(f"{Fore.RED}Error: File not found: {args.graph_file}{Style.RESET_ALL}", file=sys.stderr)
-        print(f"{Fore.YELLOW}Use --list-examples to see available example graphs{Style.RESET_ALL}", file=sys.stderr)
+        print(f"{Fore.YELLOW}Use --list to see available example graphs{Style.RESET_ALL}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
         print(f"{Fore.RED}Error: {str(e)}{Style.RESET_ALL}", file=sys.stderr)

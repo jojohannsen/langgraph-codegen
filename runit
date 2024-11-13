@@ -11,13 +11,13 @@ diff setup.py setup2.py
 read -p "setup.py changes OK? (y/n) " is_ok_setup
 
 # Update lgcodegen.py
-sed "s/$VERSION/$version/g" lgcodegen.py > lgcodegen2.py
-diff lgcodegen.py lgcodegen2.py
+sed "s/$VERSION/$version/g" ./src/langgraph_codegen/lgcodegen.py > ./src/langgraph_codegen/lgcodegen2.py
+diff ./src/langgraph_codegen/lgcodegen.py ./src/langgraph_codegen/lgcodegen2.py
 read -p "lgcodegen.py changes OK? (y/n) " is_ok_lgcodegen
 
 if [ "$is_ok_setup" = "y" ] && [ "$is_ok_lgcodegen" = "y" ]; then
     mv setup2.py setup.py
-    mv lgcodegen2.py lgcodegen.py
+    mv ./src/langgraph_codegen/lgcodegen2.py ./src/langgraph_codegen/lgcodegen.py
     echo "Files have been updated"
     git add setup.py lgcodegen.py
     read -p "Commit message: " commit_message
