@@ -15,7 +15,7 @@ from collections import namedtuple
 from typing_extensions import TypedDict
 
 # DO NOT EDIT, this is updated by runit script
-version="v0.1.28"
+version="v0.1.29"
 
 # Initialize colorama (needed for Windows)
 init()
@@ -41,9 +41,17 @@ def print_python_code(code_string, show_line_numbers=False):
     rprint(syntax)
 
 def get_example_path(filename):
-    """Get the full path to an example file."""
+    """Get the full path to an example file.
+    First checks for local graph_name/graph_name.txt file,
+    then falls back to package examples."""
     try:
-        # Get the package directory
+        # First check for local graph_name/graph_name.txt
+        base_name = filename.split('.')[0]
+        local_path = Path(base_name) / f"{base_name}.txt"
+        if local_path.exists():
+            return str(local_path)
+            
+        # If not found locally, check package examples
         import langgraph_codegen
         package_dir = Path(os.path.dirname(langgraph_codegen.__file__))
         if '.' not in filename:
@@ -331,7 +339,7 @@ def main():
         # Get the graph file content
         example_path = get_example_path(args.graph_file)
         file_path = example_path if example_path else args.graph_file
-        
+        print(f"Using graph file: {file_path}")
         try:
             with open(file_path, 'r') as f:
                 graph_spec = f.read()
@@ -478,7 +486,7 @@ if __name__ == "__main__":
             
     except FileNotFoundError:
         print(f"{Fore.RED}Error: File not found: {args.graph_file}{Style.RESET_ALL}", file=sys.stderr)
-        print(f"{Fore.YELLOW}Use --list to see available example graphs{Style.RESET_ALL}", file=sys.stderr)
+        print(f"{Fore.BLUE}Use --list to see available example graphs{Style.RESET_ALL}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
         print(f"{Fore.RED}Error: {str(e)}{Style.RESET_ALL}", file=sys.stderr)
