@@ -3,6 +3,7 @@ from typing import Set, Dict, Callable
 from langgraph_codegen.gen_graph import gen_graph, gen_nodes, gen_state, gen_conditions, validate_graph
 from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import PromptTemplate
+from langchain_anthropic import AnthropicLLM
 from pydantic import BaseModel
 from typing import Literal
 from langchain_core.prompts import PromptTemplate
@@ -20,9 +21,11 @@ def get_available_models(api_key_name: str) -> list[str]:
         List of available model names
     """
     if api_key_name == "ANTHROPIC_API_KEY":
-        return ["claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"]
+        return ["claude-3-5-haiku-latest", "claude-3-5-sonnet-latest", "claude-3-opus-latest)"]
     elif api_key_name == "OPENAI_API_KEY":
-        return ["gpt-4-turbo-preview", "gpt-4", "gpt-3.5-turbo"]
+        import openai
+        models = openai.models.list()
+        return [x.id for x in models]
     return []
 
 def get_llm(api_keys: Dict[str, bool]) -> ChatAnthropic | ChatOpenAI:
@@ -178,7 +181,14 @@ User Request: {user_input}
 
 Response:""",
 
-    "conditions": """User Request: {user_input}
+    "conditions": """We have a user request regarding conditional edges.
+
+The transitions are discussed in the GRAPH_DESCRIPTION section.
+
+In general, keep the response concise and to the point.
+
+Respond only with text, do not use html or markdown.
+User Request: {user_input}
 
 <GRAPH_SPEC>
 {graph_spec}
@@ -416,7 +426,7 @@ from operator import itemgetter
                             self.graph.get("graph", {}),
                             llm
                         )
-                        if classification.design_type == "graph":
+                        if classification.design_type in ["graph", "conditions"]:
                             print(f"\n{Fore.CYAN}{self.graph_spec}{Style.RESET_ALL}\n")
                         txt = "\n".join(textwrap.wrap(response.content, width=80, expand_tabs=False,replace_whitespace=False))
                         print(f"\n{Fore.BLUE}{txt}{Style.RESET_ALL}\n")
