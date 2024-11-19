@@ -15,7 +15,7 @@ from collections import namedtuple
 from typing_extensions import TypedDict
 
 # DO NOT EDIT, this is updated by runit script
-version="v0.1.30"
+version="v0.1.31"
 
 # Initialize colorama (needed for Windows)
 init()
@@ -75,7 +75,8 @@ def list_examples():
         return
         
     for example in sorted(examples):
-        name = example.split('/')[-1]  # Get just the filename
+        name = example.split('/')[-1]
+        name = name.split('.')[0]       # Get just the filename
         print(f" {Fore.BLUE}{name}{Style.RESET_ALL}")
     
     print(f"\n{Fore.LIGHTBLACK_EX}View a graph with: {Fore.BLUE}lgcodegen <graph_name>{Style.RESET_ALL}\n")

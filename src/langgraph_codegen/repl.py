@@ -23,9 +23,7 @@ def get_available_models(api_key_name: str) -> list[str]:
     if api_key_name == "ANTHROPIC_API_KEY":
         return ["claude-3-5-haiku-latest", "claude-3-5-sonnet-latest", "claude-3-opus-latest)"]
     elif api_key_name == "OPENAI_API_KEY":
-        import openai
-        models = openai.models.list()
-        return [x.id for x in models]
+        return ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo", "o1-mini", "o1-preview"]
     return []
 
 def get_llm(api_keys: Dict[str, bool]) -> ChatAnthropic | ChatOpenAI:
@@ -330,7 +328,15 @@ class GraphDesignREPL:
         self.print_code = code_printer
         
         # Map commands to their corresponding generation functions
-        self.command_names = ['graph', 'nodes', 'conditions', 'state', 'code', 'dsl']
+        self.command_names = [
+            'graph', 
+            'nodes', 
+            'conditions', 
+            'state', 
+            'code', 
+            'dsl',
+            'save'
+        ]
         self.commands = {
             name: self._get_command_function(name)
             for name in self.command_names
@@ -358,9 +364,29 @@ class GraphDesignREPL:
             'conditions': lambda: gen_conditions(self.graph_spec),
             'state': lambda: gen_state(self.graph_spec),
             'code': self._generate_complete_code,
-            'dsl': lambda: f"{self.graph_spec}"
+            'dsl': lambda: f"{self.graph_spec}",
+            'save': lambda: (_ for _ in ()).throw(ValueError("should not be called from here"))
         }
         return command_map[command]
+    
+    def _save_code(self, file_name: str, code: str):
+        """Save the code to a file."""
+        if file_name:
+            with open(file_name, 'w') as f:
+                f.write(code)
+            print(f"Saved code to {file_name}")
+        else:
+            print(f"Unable to save code to {file_name}")
+    
+    def _get_file(self, user_input: str) -> str:
+        """Get the file name from the user input."""
+        high_level_command = user_input.split(' ')[0]
+        high_level_command = high_level_command.lower()
+        if high_level_command == "code":
+            return f"{self.graph_name}_main.py"
+        elif high_level_command in self.command_names:
+            return f"{self.graph_name}_{high_level_command}.py"
+        return None
     
     def _generate_complete_code(self) -> str:
         """Generate complete runnable code."""
@@ -392,7 +418,7 @@ from operator import itemgetter
         print(f"Working with graph: {self.graph_name}")
         self._print_help()
         print("Type 'quit' to exit\n")
-        
+        last_code = "# No code has been shown yet"
         while True:
             try:
                 # Get input with the prompt and strip whitespace
@@ -405,13 +431,19 @@ from operator import itemgetter
                 
                 # Handle generation commands
                 if user_input in self.commands:
-                    result = self.commands[user_input]()
-                    if result:
-                        print("\n")
-                        self.print_code(result)  # Use the passed-in printer function
-                        print("\n")
+                    if user_input.lower() == 'save':
+                        file_name = self._get_file(last_code_user_input)
+                        self._save_code(file_name, last_code)
                     else:
-                        print(f"\n{Fore.RED}Unable to generate code for {user_input}{Style.RESET_ALL}\n")
+                        result = self.commands[user_input]()
+                        if result:
+                            print("\n")
+                            last_code = result
+                            last_code_user_input = user_input
+                            self.print_code(result)  # Use the passed-in printer function
+                            print("\n")
+                        else:
+                            print(f"\n{Fore.RED}Unable to generate code for {user_input}{Style.RESET_ALL}\n")
                 elif user_input.endswith('help'):
                     self._print_help()
                 elif user_input.startswith('-'):
