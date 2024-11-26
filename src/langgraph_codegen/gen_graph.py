@@ -242,10 +242,11 @@ def gen_nodes(graph: Union[Graph, dict], found_functions: list[str] = None):
 
     # Handle both Graph and dict inputs
     if isinstance(graph, Graph):
-        node_items = [(node, None) for node in graph.nodes]
+        node_items = sorted([(node, None) for node in graph.nodes])
         state_type = graph.state_type if hasattr(graph, 'state_type') else 'default'
     else:
-        node_items = graph.items()
+        # For dict, sort by node names (the keys)
+        node_items = sorted(graph.items(), key=lambda x: x[0])
         state_type = 'default'
 
     for node_name, node_data in node_items:

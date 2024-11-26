@@ -323,7 +323,8 @@ class GraphDesignREPL:
         self.api_keys = {var: var in os.environ for var in self.required_env_vars}
         
         self.prompt = f"{Fore.BLUE}lgcodegen: {Style.RESET_ALL}"
-        self.graph_name = graph_file.split('.')[0]  # Remove extension if present
+        # Convert any dashes to underscores in graph name for Python compatibility
+        self.graph_name = graph_file.split('.')[0].replace('-', '_')  # Remove extension and convert dashes
         self.graph_spec = graph_spec
         self.graph = validate_graph(graph_spec)
         self.print_code = code_printer
@@ -338,12 +339,14 @@ class GraphDesignREPL:
             'dsl',
             'save'
         ]
-        self.commands = {
-            name: self._get_command_function(name)
-            for name in self.command_names
-            for prefix in ['', '-', '--']  # Create entries for no dash, single dash, and double dash
-            for cmd in [prefix + name]
-        }
+        self.commands = {}
+        for name in self.command_names:
+            # Handle no prefix, single dash, and double dash
+            for prefix in ['', '-', '--']:
+                cmd = prefix + name
+                # Strip any dashes from the command to get the base command
+                base_cmd = cmd.lstrip('-')
+                self.commands[cmd] = self._get_command_function(base_cmd)
         
         self.llm = None
     
@@ -373,7 +376,7 @@ class GraphDesignREPL:
     def _save_code(self, file_name: str, code: str):
         """Save the code to a file."""
         if file_name:
-            folder_name = file_name.split('_')[0]
+            folder_name = file_name[:file_name.rfind('_')]
             # Create the folder if it doesn't exist
             Path(folder_name).mkdir(parents=True, exist_ok=True)
             # Use the file name as is, preserving the extension

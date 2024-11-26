@@ -4,7 +4,7 @@
 set -e
 
 # Enable command echoing
-set -x
+#set -x
 
 # List of architectures to test
 architectures=(
@@ -35,6 +35,37 @@ for arch in "${architectures[@]}"; do
     
     # Compare results
     python compare_test_runs.py "expected_results/$arch.txt" "actual_results/$arch.txt"
+
+    # test repl
+    cat commands | lgcodegen "$arch" -i > "actual_results/$arch.commands.txt"
+    diff "expected_results/$arch.commands.txt" "actual_results/$arch.commands.txt"
+    
+    # Verify required files exist
+    required_files=(
+        "$arch.py"
+        "${arch}_conditions.py"
+        "${arch}_graph.py"
+        "${arch}_nodes.py"
+        "$arch.txt"
+        "${arch}_dsl.txt"
+        "${arch}_main.py"
+        "${arch}_state.py"
+    )
+    
+    echo "Checking required files for $arch..."
+    missing_files=0
+    for file in "${required_files[@]}"; do
+	#echo "$arch/$file"
+        if [ ! -f "$arch/$file" ]; then
+            echo -e "\033[31mError: Missing required file: $arch/$file\033[0m"
+            missing_files=1
+        fi
+    done
+    
+    if [ $missing_files -eq 1 ]; then
+        echo -e "\033[31mError: Some required files are missing for $arch architecture!\033[0m"
+        exit 1
+    fi
 done
 
 # Clean up what got created

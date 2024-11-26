@@ -1,0 +1,298 @@
+LangGraph CodeGen v0.1.33
+Using graph file: multi_agent_collaboration/multi_agent_collaboration.txt
+
+Welcome to the LangGraph Design REPL!
+Working with graph: multi_agent_collaboration
+
+Experimental REPL Mode
+Available commands: graph, nodes, conditions, state, code, dsl
+Commands can be used with or without dashes (e.g. 'graph', '-graph', or '--graph')
+Type 'quit' to exit
+
+lgcodegen: 
+
+# GENERATED code, creates compiled graph: multi_agent_collaboration                                          
+from langgraph.graph import START, END, StateGraph                                                           
+from langgraph.checkpoint.memory import MemorySaver                                                          
+import sqlite3                                                                                               
+                                                                                                             
+checkpoint_saver = MemorySaver()                                                                             
+multi_agent_collaboration = StateGraph(AgentState)                                                           
+multi_agent_collaboration.add_node('research_node', research_node)                                           
+multi_agent_collaboration.add_node('chart_node', chart_node)                                                 
+multi_agent_collaboration.add_node('tool_node', tool_node)                                                   
+multi_agent_collaboration.add_edge(START, 'research_node')                                                   
+def after_research_node(state: AgentState):                                                                  
+    if should_make_chart(state):                                                                             
+        return 'chart_node'                                                                                  
+    elif should_call_tool(state):                                                                            
+        return 'tool_node'                                                                                   
+    return 'END'                                                                                             
+                                                                                                             
+research_node_conditional_edges = { 'chart_node': 'chart_node', 'tool_node': 'tool_node', 'END': END }       
+multi_agent_collaboration.add_conditional_edges( 'research_node', after_research_node, research_node_conditio
+                                                                                                             
+def after_chart_node(state: AgentState):                                                                     
+    if should_call_researcher(state):                                                                        
+        return 'research_node'                                                                               
+    elif should_call_tool(state):                                                                            
+        return 'tool_node'                                                                                   
+    return 'END'                                                                                             
+                                                                                                             
+chart_node_conditional_edges = { 'research_node': 'research_node', 'tool_node': 'tool_node', 'END': END }    
+multi_agent_collaboration.add_conditional_edges( 'chart_node', after_chart_node, chart_node_conditional_edges
+                                                                                                             
+def after_tool_node(state: AgentState):                                                                      
+    if back_to_researcher(state):                                                                            
+        return 'research_node'                                                                               
+    elif back_to_chart(state):                                                                               
+        return 'chart_node'                                                                                  
+    else:                                                                                                    
+        # destination not found, default to END                                                              
+        return END                                                                                           
+                                                                                                             
+tool_node_conditional_edges = { 'research_node': 'research_node', 'chart_node': 'chart_node' }               
+multi_agent_collaboration.add_conditional_edges( 'tool_node', after_tool_node, tool_node_conditional_edges ) 
+                                                                                                             
+                                                                                                             
+multi_agent_collaboration = multi_agent_collaboration.compile(checkpointer=checkpoint_saver)                 
+
+
+lgcodegen: Saved code to multi_agent_collaboration/multi_agent_collaboration_graph.py
+lgcodegen: 
+
+                                                                                                             
+def END(state: default, *, config:Optional[RunnableConfig] = None):                                          
+    print(f'NODE: END')                                                                                      
+    return { 'nodes_visited': 'END', 'counter': state['counter'] + 1 }                                       
+                                                                                                             
+                                                                                                             
+def chart_node(state: default, *, config:Optional[RunnableConfig] = None):                                   
+    print(f'NODE: chart_node')                                                                               
+    return { 'nodes_visited': 'chart_node', 'counter': state['counter'] + 1 }                                
+                                                                                                             
+                                                                                                             
+def research_node(state: default, *, config:Optional[RunnableConfig] = None):                                
+    print(f'NODE: research_node')                                                                            
+    return { 'nodes_visited': 'research_node', 'counter': state['counter'] + 1 }                             
+                                                                                                             
+                                                                                                             
+def tool_node(state: default, *, config:Optional[RunnableConfig] = None):                                    
+    print(f'NODE: tool_node')                                                                                
+    return { 'nodes_visited': 'tool_node', 'counter': state['counter'] + 1 }                                 
+                                                                                                             
+
+
+lgcodegen: Saved code to multi_agent_collaboration/multi_agent_collaboration_nodes.py
+lgcodegen: 
+
+# GENERATED CODE -- used for graph simulation mode                                                           
+def should_make_chart(state: AgentState) -> bool:                                                            
+    result = random_one_or_zero()                                                                            
+    print(f'CONDITION: should_make_chart. Result: {result}')                                                 
+    return result                                                                                            
+                                                                                                             
+                                                                                                             
+def should_call_tool(state: AgentState) -> bool:                                                             
+    result = random_one_or_zero()                                                                            
+    print(f'CONDITION: should_call_tool. Result: {result}')                                                  
+    return result                                                                                            
+                                                                                                             
+                                                                                                             
+def should_call_researcher(state: AgentState) -> bool:                                                       
+    result = random_one_or_zero()                                                                            
+    print(f'CONDITION: should_call_researcher. Result: {result}')                                            
+    return result                                                                                            
+                                                                                                             
+                                                                                                             
+def should_call_tool(state: AgentState) -> bool:                                                             
+    result = random_one_or_zero()                                                                            
+    print(f'CONDITION: should_call_tool. Result: {result}')                                                  
+    return result                                                                                            
+                                                                                                             
+                                                                                                             
+def back_to_researcher(state: AgentState) -> bool:                                                           
+    result = random_one_or_zero()                                                                            
+    print(f'CONDITION: back_to_researcher. Result: {result}')                                                
+    return result                                                                                            
+                                                                                                             
+                                                                                                             
+def back_to_chart(state: AgentState) -> bool:                                                                
+    result = random_one_or_zero()                                                                            
+    print(f'CONDITION: back_to_chart. Result: {result}')                                                     
+    return result                                                                                            
+                                                                                                             
+
+
+lgcodegen: Saved code to multi_agent_collaboration/multi_agent_collaboration_conditions.py
+lgcodegen: 
+
+                                                                                                             
+# GENERATED CODE: mock graph state                                                                           
+from typing import Annotated, TypedDict                                                                      
+                                                                                                             
+def add_str_to_list(a=None, b=""):                                                                           
+    return (a if a is not None else []) + ([b] if not isinstance(b, list) else b)                            
+                                                                                                             
+class AgentState(TypedDict):                                                                                 
+    nodes_visited: Annotated[list[str], add_str_to_list]                                                     
+    counter: int                                                                                             
+                                                                                                             
+def initial_state_AgentState():                                                                              
+    return { 'nodes_visited': [], 'counter': 0 }                                                             
+                                                                                                             
+
+
+lgcodegen: Saved code to multi_agent_collaboration/multi_agent_collaboration_state.py
+lgcodegen: 
+
+from typing import Dict, TypedDict, Annotated, Optional                                                      
+from langgraph.graph import StateGraph, Graph                                                                
+from langchain_core.messages.tool import ToolMessage                                                         
+from langchain_core.runnables.config import RunnableConfig                                                   
+from operator import itemgetter                                                                              
+                                                                                                             
+                                                                                                             
+                                                                                                             
+# GENERATED CODE: mock graph state                                                                           
+from typing import Annotated, TypedDict                                                                      
+                                                                                                             
+def add_str_to_list(a=None, b=""):                                                                           
+    return (a if a is not None else []) + ([b] if not isinstance(b, list) else b)                            
+                                                                                                             
+class AgentState(TypedDict):                                                                                 
+    nodes_visited: Annotated[list[str], add_str_to_list]                                                     
+    counter: int                                                                                             
+                                                                                                             
+def initial_state_AgentState():                                                                              
+    return { 'nodes_visited': [], 'counter': 0 }                                                             
+                                                                                                             
+                                                                                                             
+                                                                                                             
+def END(state: default, *, config:Optional[RunnableConfig] = None):                                          
+    print(f'NODE: END')                                                                                      
+    return { 'nodes_visited': 'END', 'counter': state['counter'] + 1 }                                       
+                                                                                                             
+                                                                                                             
+def chart_node(state: default, *, config:Optional[RunnableConfig] = None):                                   
+    print(f'NODE: chart_node')                                                                               
+    return { 'nodes_visited': 'chart_node', 'counter': state['counter'] + 1 }                                
+                                                                                                             
+                                                                                                             
+def research_node(state: default, *, config:Optional[RunnableConfig] = None):                                
+    print(f'NODE: research_node')                                                                            
+    return { 'nodes_visited': 'research_node', 'counter': state['counter'] + 1 }                             
+                                                                                                             
+                                                                                                             
+def tool_node(state: default, *, config:Optional[RunnableConfig] = None):                                    
+    print(f'NODE: tool_node')                                                                                
+    return { 'nodes_visited': 'tool_node', 'counter': state['counter'] + 1 }                                 
+                                                                                                             
+                                                                                                             
+# GENERATED CODE -- used for graph simulation mode                                                           
+def should_make_chart(state: AgentState) -> bool:                                                            
+    result = random_one_or_zero()                                                                            
+    print(f'CONDITION: should_make_chart. Result: {result}')                                                 
+    return result                                                                                            
+                                                                                                             
+                                                                                                             
+def should_call_tool(state: AgentState) -> bool:                                                             
+    result = random_one_or_zero()                                                                            
+    print(f'CONDITION: should_call_tool. Result: {result}')                                                  
+    return result                                                                                            
+                                                                                                             
+                                                                                                             
+def should_call_researcher(state: AgentState) -> bool:                                                       
+    result = random_one_or_zero()                                                                            
+    print(f'CONDITION: should_call_researcher. Result: {result}')                                            
+    return result                                                                                            
+                                                                                                             
+                                                                                                             
+def should_call_tool(state: AgentState) -> bool:                                                             
+    result = random_one_or_zero()                                                                            
+    print(f'CONDITION: should_call_tool. Result: {result}')                                                  
+    return result                                                                                            
+                                                                                                             
+                                                                                                             
+def back_to_researcher(state: AgentState) -> bool:                                                           
+    result = random_one_or_zero()                                                                            
+    print(f'CONDITION: back_to_researcher. Result: {result}')                                                
+    return result                                                                                            
+                                                                                                             
+                                                                                                             
+def back_to_chart(state: AgentState) -> bool:                                                                
+    result = random_one_or_zero()                                                                            
+    print(f'CONDITION: back_to_chart. Result: {result}')                                                     
+    return result                                                                                            
+                                                                                                             
+                                                                                                             
+# GENERATED code, creates compiled graph: multi_agent_collaboration                                          
+from langgraph.graph import START, END, StateGraph                                                           
+from langgraph.checkpoint.memory import MemorySaver                                                          
+import sqlite3                                                                                               
+                                                                                                             
+checkpoint_saver = MemorySaver()                                                                             
+multi_agent_collaboration = StateGraph(AgentState)                                                           
+multi_agent_collaboration.add_node('research_node', research_node)                                           
+multi_agent_collaboration.add_node('chart_node', chart_node)                                                 
+multi_agent_collaboration.add_node('tool_node', tool_node)                                                   
+multi_agent_collaboration.add_edge(START, 'research_node')                                                   
+def after_research_node(state: AgentState):                                                                  
+    if should_make_chart(state):                                                                             
+        return 'chart_node'                                                                                  
+    elif should_call_tool(state):                                                                            
+        return 'tool_node'                                                                                   
+    return 'END'                                                                                             
+                                                                                                             
+research_node_conditional_edges = { 'chart_node': 'chart_node', 'tool_node': 'tool_node', 'END': END }       
+multi_agent_collaboration.add_conditional_edges( 'research_node', after_research_node, research_node_conditio
+                                                                                                             
+def after_chart_node(state: AgentState):                                                                     
+    if should_call_researcher(state):                                                                        
+        return 'research_node'                                                                               
+    elif should_call_tool(state):                                                                            
+        return 'tool_node'                                                                                   
+    return 'END'                                                                                             
+                                                                                                             
+chart_node_conditional_edges = { 'research_node': 'research_node', 'tool_node': 'tool_node', 'END': END }    
+multi_agent_collaboration.add_conditional_edges( 'chart_node', after_chart_node, chart_node_conditional_edges
+                                                                                                             
+def after_tool_node(state: AgentState):                                                                      
+    if back_to_researcher(state):                                                                            
+        return 'research_node'                                                                               
+    elif back_to_chart(state):                                                                               
+        return 'chart_node'                                                                                  
+    else:                                                                                                    
+        # destination not found, default to END                                                              
+        return END                                                                                           
+                                                                                                             
+tool_node_conditional_edges = { 'research_node': 'research_node', 'chart_node': 'chart_node' }               
+multi_agent_collaboration.add_conditional_edges( 'tool_node', after_tool_node, tool_node_conditional_edges ) 
+                                                                                                             
+                                                                                                             
+multi_agent_collaboration = multi_agent_collaboration.compile(checkpointer=checkpoint_saver)                 
+
+
+lgcodegen: Saved code to multi_agent_collaboration/multi_agent_collaboration_main.py
+lgcodegen: 
+
+# Multiple agents updating same State model                                                                  
+START(AgentState) => research_node                                                                           
+                                                                                                             
+research_node                                                                                                
+  should_make_chart => chart_node                                                                            
+  should_call_tool => tool_node                                                                              
+  => END                                                                                                     
+                                                                                                             
+chart_node                                                                                                   
+  should_call_researcher => research_node                                                                    
+  should_call_tool => tool_node                                                                              
+  => END                                                                                                     
+                                                                                                             
+tool_node                                                                                                    
+  back_to_researcher => research_node                                                                        
+  back_to_chart => chart_node                                                                                
+
+
+lgcodegen: Saved code to multi_agent_collaboration/multi_agent_collaboration_dsl.txt
+lgcodegen: Goodbye!
