@@ -84,7 +84,8 @@ def test_valid_start_node():
     result = validate_graph(graph_spec)
     assert "error" not in result
     assert "graph" in result
-    #assert "graph" in result  # Should contain the compiled graph object
+    print(result)
+
 
 def test_multiple_errors(monkeypatch):
     """Test accumulation of multiple errors"""
@@ -100,11 +101,10 @@ def test_multiple_errors(monkeypatch):
     assert "error" in result
     assert "solution" in result
     
-    # Should contain both errors
+    # Should contain error and solution 
     assert ERROR_START_NODE_NOT_FOUND in result["error"]
-    
-    # Should contain both solutions
     assert "START node" in result["solution"]
+
 
 def test_single_error():
     """Test single error case still works"""

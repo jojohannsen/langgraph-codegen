@@ -4,7 +4,11 @@ import sys
 import argparse
 import os
 from pathlib import Path
-from langgraph_codegen.gen_graph import gen_graph, gen_nodes, gen_state,gen_conditions, validate_graph
+from langgraph_codegen.gen_graph import (
+    gen_graph, gen_nodes, gen_state, 
+    gen_conditions, validate_graph, get_example_path,
+    parse_graph_spec
+)
 from colorama import init, Fore, Style
 from rich import print as rprint
 from rich.syntax import Syntax
@@ -39,31 +43,6 @@ def print_python_code(code_string, show_line_numbers=False):
     
     # Print the highlighted code
     rprint(syntax)
-
-def get_example_path(filename):
-    """Get the full path to an example file.
-    First checks for local graph_name/graph_name.txt file,
-    then falls back to package examples."""
-    try:
-        # First check for local graph_name/graph_name.txt
-        base_name = filename.split('.')[0]
-        local_path = Path(base_name) / f"{base_name}.txt"
-        if local_path.exists():
-            return str(local_path)
-            
-        # If not found locally, check package examples
-        import langgraph_codegen
-        package_dir = Path(os.path.dirname(langgraph_codegen.__file__))
-        if '.' not in filename:
-            filename = filename + '.graph'
-        example_path = package_dir / 'data' / 'examples' / filename
-        
-        if example_path.exists():
-            return str(example_path)
-        return None
-    except Exception as e:
-        print(f"Error finding example: {str(e)}", file=sys.stderr)
-        return None
 
 def list_examples():
     """List all available example graph files."""
@@ -145,7 +124,7 @@ def ensure_graph_folder(graph_name: str) -> Path:
     """
     folder = Path(graph_name)
     if not folder.exists():
-        print(f"{Fore.GREEN}Creating folder {graph_name}{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}Creating folder {Fore.BLUE}{graph_name}{Style.RESET_ALL}")
         folder.mkdir(parents=True)
     return folder
 
@@ -162,7 +141,7 @@ def save_graph_spec(folder: Path, graph_name: str, graph_spec: str):
         print(f"{Fore.BLUE}Graph specification file {spec_file} already exists{Style.RESET_ALL}")
         return
     spec_file.write_text(graph_spec)
-    print(f"{Fore.GREEN}Saved graph specification to {spec_file}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}Saved graph specification to {Fore.BLUE}{spec_file}{Style.RESET_ALL}")
 
 import inspect
 from importlib.util import spec_from_file_location, module_from_spec
@@ -245,7 +224,7 @@ def find_class_in_files(class_name: str, python_files: List[str]) -> Optional[st
 
 from typing import TypedDict, Type, get_type_hints
 
-def init_state(state_class: Type[TypedDict]) -> TypedDict:
+def init_state(state_class) -> dict:
     """
     Initialize any TypedDict subclass by prompting user for string fields.
     Only processes str fields, preserving default empty values for other types.
@@ -254,16 +233,21 @@ def init_state(state_class: Type[TypedDict]) -> TypedDict:
         state_class: The TypedDict class to instantiate
         
     Returns:
-        An instance of the passed class with user-provided values for string fields
+        dict: A dictionary with user-provided values for string fields
     """
     # Get the type hints to identify string fields
-    type_hints = get_type_hints(state_class)
+    try:
+        type_hints = get_type_hints(state_class)
+    except TypeError:
+        # Fallback if type hints cannot be retrieved
+        type_hints = getattr(state_class, '__annotations__', {})
     
     # Initialize with empty values based on types
-    state = {
-        field: [] if 'list' in str(type_).lower() else ''
-        for field, type_ in type_hints.items()
-    }
+    state = {}
+    for field, type_ in type_hints.items():
+        # Check if it's a list type by looking at the type string
+        is_list = 'list' in str(type_).lower()
+        state[field] = [] if is_list else ''
     
     # Process each field
     print(f"Enter values for {state_class.__name__} fields (press Enter to skip):")
@@ -278,7 +262,7 @@ def init_state(state_class: Type[TypedDict]) -> TypedDict:
 INIT_STATE_FUNCTION = '''
 from typing import TypedDict, Type, get_type_hints
 
-def init_state(state_class: Type[TypedDict]) -> TypedDict:
+def init_state(state_class) -> dict:
     """
     Initialize any TypedDict subclass by prompting user for string fields.
     Only processes str fields, preserving default empty values for other types.
@@ -287,16 +271,21 @@ def init_state(state_class: Type[TypedDict]) -> TypedDict:
         state_class: The TypedDict class to instantiate
         
     Returns:
-        An instance of the passed class with user-provided values for string fields
+        dict: A dictionary with user-provided values for string fields
     """
     # Get the type hints to identify string fields
-    type_hints = get_type_hints(state_class)
+    try:
+        type_hints = get_type_hints(state_class)
+    except TypeError:
+        # Fallback if type hints cannot be retrieved
+        type_hints = getattr(state_class, '__annotations__', {})
     
     # Initialize with empty values based on types
-    state = {
-        field: [] if 'list' in str(type_).lower() else ''
-        for field, type_ in type_hints.items()
-    }
+    state = {}
+    for field, type_ in type_hints.items():
+        # Check if it's a list type by looking at the type string
+        is_list = 'list' in str(type_).lower()
+        state[field] = [] if is_list else ''
     
     # Process each field
     print(f"Enter values for {state_class.__name__} fields (press Enter to skip):")
@@ -325,6 +314,7 @@ def main():
     parser.add_argument('--conditions', action='store_true', help='Generate condition code')
     parser.add_argument('--state', action='store_true', help='Generate state code')
     parser.add_argument('--code', action='store_true', help='Generate runnable graph')
+    parser.add_argument('--seed', type=int, help='Random seed for reproducible tests')
      
     # Single required argument
     parser.add_argument('graph_file', nargs='?', help='Path to the graph specification file or folder')
@@ -382,13 +372,27 @@ def main():
         # Validate the graph specification
         validation_result = validate_graph(graph_spec)
         if "error" in validation_result:
-            print(f"{Fore.RED}Error in graph specification:{Style.RESET_ALL}\n{validation_result['error']}", file=sys.stderr)
-            print(f"\n{Fore.YELLOW}Suggested solutions:{Style.RESET_ALL}\n{validation_result['solution']}", file=sys.stderr)
+            print(f"{Fore.RED}Errors in graph specification:{Style.RESET_ALL}\n")
+            print(f"{validation_result['error']}\n")
+            if hasattr(validation_result, 'solution'):
+                print(f"{Fore.BLUE}Suggested solutions:{Style.RESET_ALL}\n")
+                print(f"{validation_result['solution']}\n")
+            if hasattr(validation_result, 'details'):
+                print(f"{Fore.YELLOW}Details:{Style.RESET_ALL}\n")
+                print(f"{validation_result['details']}\n")
             sys.exit(1)
 
-        # Generate the requested code
-        graph = validate_graph(graph_spec)
-        state_class = graph.get('graph', {}).get('START', {}).get('state')
+        # Extract the graph from validation result
+        graph_instance = validation_result.get("graph")
+        if not graph_instance:
+            print(f"{Fore.RED}Error: Invalid graph structure{Style.RESET_ALL}", file=sys.stderr)
+            sys.exit(1)
+
+        # Parse the graph spec to get the state class
+        parsed_graph, start_node = parse_graph_spec(graph_spec)
+        graph_dict = parsed_graph  # Use the parsed dictionary version instead of the Graph instance
+        state_class = graph_dict[start_node]["state"]
+        state_class_file = None
         if args.code:
             # Get graph name from file name (without extension)
             graph_name = Path(args.graph_file).stem
@@ -399,7 +403,7 @@ def main():
             
             # Check if file exists and prompt for overwrite
             if output_file.exists():
-                response = input(f"{Fore.GREEN}File {output_file} exists. Overwrite? (y/n): {Style.RESET_ALL}")
+                response = input(f"{Fore.GREEN}File {Fore.BLUE}{output_file}{Style.RESET_ALL} exists. Overwrite? (y/n): {Style.RESET_ALL}")
                 if response.lower() != 'y':
                     print(f"{Fore.LIGHTRED_EX}Code generation cancelled.{Style.RESET_ALL}")
                     sys.exit(0)
@@ -408,22 +412,23 @@ def main():
             save_graph_spec(graph_folder, graph_name, graph_spec)
             
             # Names of all the node functions:
-            node_functions = [ node_name for node_name, _ in graph['graph'].items() if node_name != "START" ]
+            node_functions = [node for node in parsed_graph.keys() if node != "START"]
             # Names for all the python files in graph_folder, except for {graph_name}.py
             python_files = [ f"{graph_folder}/{f.name}" for f in graph_folder.glob('*.py') if f.stem != graph_name ]
             if len(python_files):
                 print(f"Searching for node functions in {python_files}")
                 found_functions = find_functions_in_files(node_functions, python_files)
+
+                print(f"{Fore.BLUE}Found functions: {", ".join([ff.function_name for ff in found_functions])}{Style.RESET_ALL}")
+                print(f"Searching for state class '{state_class}' in {python_files}")
+                state_class_file = find_class_in_files(state_class, python_files)
+                if state_class_file:
+                    print(f"{Fore.BLUE}Found state class '{state_class}' in {Fore.BLUE}{state_class_file}{Style.RESET_ALL}")
+                else:
+                    print(f"{Fore.GREEN}State class '{state_class}' not found{Style.RESET_ALL}")
             else:
                 found_functions = []
 
-            print(f"{Fore.BLUE}Found functions: {", ".join([ff.function_name for ff in found_functions])}{Style.RESET_ALL}")
-            print(f"Searching for state class '{state_class}' in {python_files}")
-            state_class_file = find_class_in_files(state_class, python_files)
-            if state_class_file:
-                print(f"{Fore.BLUE}Found state class '{state_class}' in {state_class_file}{Style.RESET_ALL}")
-            else:
-                print(f"{Fore.GREEN}State class '{state_class}' not found{Style.RESET_ALL}")
             # Collect all code components
             complete_code = []
             
@@ -433,20 +438,23 @@ from langgraph.graph import StateGraph, Graph
 from langchain_core.messages.tool import ToolMessage
 from langchain_core.runnables.config import RunnableConfig
 from operator import itemgetter
+import random
 """)
+
+            # Add seed initialization if provided
+            if args.seed is not None:
+                complete_code.append(f"# Set random seed for reproducible tests\nrandom.seed({args.seed})\n")
             
             # Add components in specific order
-            if 'graph' in graph:
-                complete_code.append(gen_state(graph_spec, state_class_file))
-                complete_code.append(gen_nodes(graph['graph'], found_functions))
-                complete_code.append(gen_conditions(graph_spec))
-                ggresult = gen_graph(graph_name, graph_spec)
-                complete_code.append(ggresult)
-                
-                init_state = f"init_state({state_class})" if state_class_file else f"initial_state_{state_class}()"
-                # Add main section
-                main_section = f"""
-import random
+            complete_code.append(gen_state(graph_spec, state_class_file))
+            complete_code.append(gen_nodes(graph_dict))  
+            complete_code.append(gen_conditions(graph_spec))
+            ggresult = gen_graph(graph_name, graph_spec)
+            complete_code.append(ggresult)
+            
+            init_state = f"init_state({state_class})" if state_class_file else f"initial_state_{state_class}()"
+            # Add main section
+            main_section = f"""
 def random_one_or_zero():
     return random.choice([False, True])
 
@@ -463,27 +471,24 @@ if __name__ == "__main__":
     print("DONE STREAMING, final state:")
     print(workflow.get_state(config))
 """
-                complete_code.append(main_section)
-                # Join all code components and write to file
-                full_code = "\n\n".join(complete_code)
-                output_file.write_text(full_code)
-                print(f"{Fore.GREEN}Generated {output_file}{Style.RESET_ALL}")
-                return
+            complete_code.append(main_section)
+            # Join all code components and write to file
+            full_code = "\n\n".join(complete_code)
+            output_file.write_text(full_code)
+            print(f"{Fore.GREEN}Generated {Fore.BLUE}{output_file}{Style.RESET_ALL}")
+            return
                 
-        # Handle individual component generation as before
+        # Handle individual component generation
         if args.graph:
             print_python_code(gen_graph(graph_name, graph_spec), args.line_numbers)
         if args.nodes:
-            if 'graph' in graph:
-                print_python_code(gen_nodes(graph['graph']), args.line_numbers)
+            print_python_code(gen_nodes(graph_dict), args.line_numbers)
         if args.conditions:
-            if 'graph' in graph:
-                print_python_code(gen_conditions(graph_spec), args.line_numbers)
+            print_python_code(gen_conditions(graph_spec), args.line_numbers)
         if args.state:
-            if 'graph' in graph:
-                print_python_code(gen_state(graph_spec), args.line_numbers)
-        if 'errors' in graph:
-            print(f"{Fore.RED}Errors in graph specification: \n\n{graph['errors']}\n\n{Fore.RESET}", file=sys.stderr)
+            print_python_code(gen_state(graph_spec), args.line_numbers)
+        if hasattr(graph_instance, 'errors') and graph_instance.errors:
+            print(f"{Fore.RED}Errors in graph specification: \n\n{graph_instance.errors}\n\n{Fore.RESET}", file=sys.stderr)
             
     except FileNotFoundError:
         print(f"{Fore.RED}Error: File not found: {args.graph_file}{Style.RESET_ALL}", file=sys.stderr)

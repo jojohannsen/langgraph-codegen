@@ -1,0 +1,18 @@
+NODE: research_node
+CONDITION: should_make_chart. Result: True
+
+    {'research_node': {'nodes_visited': 'research_node', 'counter': 1}}
+
+NODE: chart_node
+CONDITION: should_call_researcher. Result: True
+
+    {'chart_node': {'nodes_visited': 'chart_node', 'counter': 2}}
+
+NODE: research_node
+CONDITION: should_make_chart. Result: False
+CONDITION: should_call_tool. Result: False
+
+    {'research_node': {'nodes_visited': 'research_node', 'counter': 3}}
+
+DONE STREAMING, final state:
+StateSnapshot(values={'nodes_visited': ['research_node', 'chart_node', 'research_node'], 'counter': 3}, next=(), config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1efac050-26b1-6198-8003-43b79a8dca03'}}, metadata={'source': 'loop', 'writes': {'research_node': {'nodes_visited': 'research_node', 'counter': 3}}, 'thread_id': '1', 'step': 3, 'parents': {}}, created_at='2024-11-26T14:44:58.715990+00:00', parent_config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1efac050-26af-6a46-8002-4722571aa876'}}, tasks=())

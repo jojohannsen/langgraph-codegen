@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# Exit on error
+set -e
+
+# Enable command echoing
+#set -x
+
+# List of architectures to test
+architectures=(
+    "multi_agent_collaboration"
+    "plan_and_execute"
+    "rag"
+    "react_agent"
+    "simple"
+    "supervisor"
+)
+
+# Clean up previous results
+mkdir -p actual_results
+rm -f actual_results/*
+
+# Process each architecture
+for arch in "${architectures[@]}"; do
+    echo "Processing architecture: $arch"
+    
+    # Clean up previous generation
+    rm -rf "$arch"
+    
+    # Generate code
+    lgcodegen "$arch" --code --seed 42
+    
+    # Run the test
+    python "$arch/$arch.py" > "actual_results/$arch.txt"
+    
+    # Compare results
+    python compare_test_runs.py "expected_results/$arch.txt" "actual_results/$arch.txt"
+done
+
+# Clean up what got created
+rm -rf actual_results
+for arch in "${architectures[@]}"; do
+    echo "Removing: $arch"
+    
+    # Clean up previous generation
+    rm -rf "$arch"
+done

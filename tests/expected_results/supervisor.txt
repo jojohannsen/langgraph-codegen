@@ -1,0 +1,74 @@
+NODE: supervisor_agent
+CONDITION: next_is_researcher. Result: True
+
+    {'supervisor_agent': {'nodes_visited': 'supervisor_agent', 'counter': 1}}
+
+NODE: research_node
+
+    {'research_node': {'nodes_visited': 'research_node', 'counter': 2}}
+
+NODE: supervisor_agent
+CONDITION: next_is_researcher. Result: False
+CONDITION: next_is_coder. Result: True
+
+    {'supervisor_agent': {'nodes_visited': 'supervisor_agent', 'counter': 3}}
+
+NODE: code_node
+
+    {'code_node': {'nodes_visited': 'code_node', 'counter': 4}}
+
+NODE: supervisor_agent
+CONDITION: next_is_researcher. Result: True
+
+    {'supervisor_agent': {'nodes_visited': 'supervisor_agent', 'counter': 5}}
+
+NODE: research_node
+
+    {'research_node': {'nodes_visited': 'research_node', 'counter': 6}}
+
+NODE: supervisor_agent
+CONDITION: next_is_researcher. Result: True
+
+    {'supervisor_agent': {'nodes_visited': 'supervisor_agent', 'counter': 7}}
+
+NODE: research_node
+
+    {'research_node': {'nodes_visited': 'research_node', 'counter': 8}}
+
+NODE: supervisor_agent
+CONDITION: next_is_researcher. Result: True
+
+    {'supervisor_agent': {'nodes_visited': 'supervisor_agent', 'counter': 9}}
+
+NODE: research_node
+
+    {'research_node': {'nodes_visited': 'research_node', 'counter': 10}}
+
+NODE: supervisor_agent
+CONDITION: next_is_researcher. Result: True
+
+    {'supervisor_agent': {'nodes_visited': 'supervisor_agent', 'counter': 11}}
+
+NODE: research_node
+
+    {'research_node': {'nodes_visited': 'research_node', 'counter': 12}}
+
+NODE: supervisor_agent
+CONDITION: next_is_researcher. Result: False
+CONDITION: next_is_coder. Result: True
+
+    {'supervisor_agent': {'nodes_visited': 'supervisor_agent', 'counter': 13}}
+
+NODE: code_node
+
+    {'code_node': {'nodes_visited': 'code_node', 'counter': 14}}
+
+NODE: supervisor_agent
+CONDITION: next_is_researcher. Result: False
+CONDITION: next_is_coder. Result: False
+CONDITION: next_is_finish. Result: True
+
+    {'supervisor_agent': {'nodes_visited': 'supervisor_agent', 'counter': 15}}
+
+DONE STREAMING, final state:
+StateSnapshot(values={'nodes_visited': ['supervisor_agent', 'research_node', 'supervisor_agent', 'code_node', 'supervisor_agent', 'research_node', 'supervisor_agent', 'research_node', 'supervisor_agent', 'research_node', 'supervisor_agent', 'research_node', 'supervisor_agent', 'code_node', 'supervisor_agent'], 'counter': 15}, next=(), config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1efac059-4b54-63f2-800f-f42d00d4af59'}}, metadata={'source': 'loop', 'writes': {'supervisor_agent': {'nodes_visited': 'supervisor_agent', 'counter': 15}}, 'thread_id': '1', 'step': 15, 'parents': {}}, created_at='2024-11-26T14:49:04.149599+00:00', parent_config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1efac059-4b52-6f3e-800e-f143dc5c0eed'}}, tasks=())

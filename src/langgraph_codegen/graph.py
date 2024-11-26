@@ -1,6 +1,22 @@
 from collections import defaultdict
 
 class Graph:
+    """A directed graph implementation for representing workflow structures.
+
+    This class implements a directed graph with support for conditional edges,
+    designated start and end nodes, and structural equivalence comparison.
+
+    Attributes:
+        nodes (set): Set of all nodes in the graph
+        edges (defaultdict): Dictionary mapping nodes to their outgoing edges
+        start_node: The designated entry point of the graph
+        end_node: The designated exit point of the graph
+
+    The graph supports two types of edges:
+    - Regular edges (condition="true")
+    - Named/conditional edges (condition=<custom_name>)
+    """
+
     def __init__(self):
         self.nodes = set()
         self.edges = defaultdict(list)
@@ -18,7 +34,7 @@ class Graph:
         self.end_node = node
         self.add_node(node)
 
-    def add_edge(self, from_node, to_node, condition="true"):
+    def add_edge(self, from_node, to_node, condition="true_fn"):
         self.add_node(from_node)
         self.add_node(to_node)
         self.edges[from_node].append((to_node, condition))
@@ -54,3 +70,17 @@ class Graph:
 
         dfs(self.start_node, 0, [])
         return dict(mapping)
+
+    def __str__(self):
+        """Returns a string representation of the graph showing nodes and their edges."""
+        result = []
+        result.append("Graph:")
+        result.append(f"Start node: {self.start_node}")
+        result.append(f"End node: {self.end_node}")
+        result.append("\nEdges:")
+        
+        for from_node, edges in self.edges.items():
+            for to_node, condition in edges:
+                result.append(f"{from_node} --[{condition}]--> {to_node}")
+        
+        return "\n".join(result)

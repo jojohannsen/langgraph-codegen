@@ -1,3 +1,4 @@
+from pathlib import Path
 from colorama import Fore, Style
 from typing import Set, Dict, Callable
 from langgraph_codegen.gen_graph import gen_graph, gen_nodes, gen_state, gen_conditions, validate_graph
@@ -372,9 +373,15 @@ class GraphDesignREPL:
     def _save_code(self, file_name: str, code: str):
         """Save the code to a file."""
         if file_name:
-            with open(file_name, 'w') as f:
+            folder_name = file_name.split('_')[0]
+            file_name = f"{file_name.split('.')[0]}"
+            # Create the folder if it doesn't exist
+            Path(folder_name).mkdir(parents=True, exist_ok=True)
+            # Check for local copy first
+            local_path = Path(folder_name) / f"{file_name}.py"
+            with open(local_path, 'w') as f:
                 f.write(code)
-            print(f"Saved code to {file_name}")
+            print(f"Saved code to {local_path}")
         else:
             print(f"Unable to save code to {file_name}")
     

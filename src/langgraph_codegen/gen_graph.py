@@ -3,6 +3,11 @@ import random
 import sys
 from textwrap import dedent
 from typing import Dict, Any, Optional
+from pathlib import Path
+import os
+from colorama import Fore, Style
+
+from langgraph_codegen.graph import Graph
 
 # Add these constants near the top of the file, after the imports
 ERROR_MISSING_IMPORTS = "Missing required imports for graph compilation"
@@ -294,6 +299,8 @@ def gen_state(graph_spec, state_class_file=None):
     else:
         return mock_state(state_class)
 
+
+    
 def gen_graph(graph_name, graph_spec, compile_args=None):
     if not graph_spec: return ""
     graph, start_node = parse_graph_spec(graph_spec)
@@ -355,29 +362,22 @@ from langgraph.graph import MessageGraph"""
 
 def validate_graph(graph_spec: str) -> Dict[str, Any]:
     """
-    Validate a graph specification and return any validation errors.
+    Validate a graph specification and return a Graph instance or validation errors.
     
     Args:
         graph_spec: String containing the graph specification
         
     Returns:
         Dict containing either:
-        - {"graph": parsed_graph_dict} if validation succeeds
+        - {"graph": Graph} if validation succeeds
         - {"error": error_messages, "solution": suggested_solutions} if validation fails
     """
     errors = []
     solutions = []
+    details = []
     
     # Normalize indentation first
     graph_spec = dedent(graph_spec)
-    
-    # Check for required imports, below does not work,
-    # if "langgraph.graph" not in sys.modules:
-    #     errors.append(ERROR_MISSING_IMPORTS)
-    #     solutions.append(
-    #         "Please ensure the following imports are present:\n"
-    #         "from langgraph.graph import START, END, StateGraph\n"
-    #     )
     
     # Validate START node
     lines = [line.strip() for line in graph_spec.split('\n') if line.strip()]
@@ -389,17 +389,103 @@ def validate_graph(graph_spec: str) -> Dict[str, Any]:
             "The graph must begin with a START node definition, for example:\n"
             "START(State) => first_node"
         )
+        details.append(f"{Fore.RED}Found:{Style.RESET_ALL} {first_non_comment or 'No non-comment lines'}\n"
+                      f"{Fore.GREEN}Expected:{Style.RESET_ALL} START(<state_type>) => <first_node>")
     
     try:
         if not errors:  # Only try to parse if no errors so far
             graph_dict, start_node = parse_graph_spec(graph_spec)
-            return {"graph": graph_dict}
+            
+            # Convert dictionary to Graph instance
+            graph = Graph()
+            
+            # Find the destination of the START node
+            start_node_dest = None
+            if "START" in graph_dict:
+                start_edges = graph_dict["START"]["edges"]
+                if start_edges:
+                    start_node_dest = start_edges[0]["destination"]
+                else:
+                    errors.append("START node has no destination")
+                    solutions.append("Add a destination node after the START node using =>")
+                    details.append(f"{Fore.RED}Found:{Style.RESET_ALL} START node without destination\n"
+                                f"{Fore.GREEN}Expected:{Style.RESET_ALL} START(<state_type>) => <destination_node>")
+            
+            # Set the actual start node (the destination of START)
+            if start_node_dest:
+                graph.set_start_node(start_node_dest)
+            
+            # Add all nodes and edges
+            for node_name, node_data in graph_dict.items():
+                if node_name != "START":  # Skip the START node as it's handled internally
+                    graph.add_node(node_name)
+                    if not node_data["edges"]:
+                        errors.append(f"Node '{node_name}' has no outgoing edges")
+                        solutions.append(f"Add at least one destination for node '{node_name}' using =>")
+                        details.append(f"{Fore.RED}Found:{Style.RESET_ALL} Node '{node_name}' without edges\n"
+                                    f"{Fore.GREEN}Expected:{Style.RESET_ALL} {node_name} => <destination>")
+                    for edge in node_data["edges"]:
+                        destination = edge["destination"]
+                        condition = edge["condition"]
+                        if destination == "END":
+                            graph.set_end_node("END")
+                        graph.add_edge(node_name, destination, condition)
+            
+            if not errors:
+                return {"graph": graph}
     except Exception as e:
         errors.append(str(e))
         solutions.append("Please check the graph specification syntax")
+        details.append(f"{Fore.RED}Error:{Style.RESET_ALL} {str(e)}")
     
     # If we get here, there were errors
     return {
         "error": "\n".join(f"{i+1}. {error}" for i, error in enumerate(errors)),
-        "solution": "\n".join(f"{i+1}. {solution}" for i, solution in enumerate(solutions))
+        "solution": "\n".join(f"{i+1}. {solution}" for i, solution in enumerate(solutions)),
+        "details": "\n\n".join(details)
     }
+
+def get_example_path(filename):
+    """Get the full path to an example file.
+    First checks for local graph_name/graph_name.txt file,
+    then falls back to package examples."""
+    try:
+        # First check for local graph_name/graph_name.txt
+        base_name = filename.split('.')[0]
+        local_path = Path(base_name) / f"{base_name}.txt"
+        if local_path.exists():
+            return str(local_path)
+            
+        # If not found locally, check package examples
+        import langgraph_codegen
+        package_dir = Path(os.path.dirname(langgraph_codegen.__file__))
+        if '.' not in filename:
+            filename = filename + '.graph'
+        example_path = package_dir / 'data' / 'examples' / filename
+        
+        if example_path.exists():
+            return str(example_path)
+        return None
+    except Exception as e:
+        print(f"Error finding example: {str(e)}", file=sys.stderr)
+        return None
+
+
+def get_graph(graph_name: str) -> str:
+    """
+    Get a compiled graph by reading the graph specification from a file.
+    
+    Args:
+        graph_name: Name of the graph file to load (with or without extension)
+        
+    Returns:
+        String containing the compiled graph code, or empty string if file not found
+    """
+    graph_path = get_example_path(graph_name)
+    if not graph_path:
+        return ""
+        
+    with open(graph_path) as f:
+        graph_spec = f.read()
+        
+    return gen_graph(graph_name.split('.')[0], graph_spec)
