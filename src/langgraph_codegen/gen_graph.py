@@ -2,7 +2,7 @@ import re
 import random
 import sys
 from textwrap import dedent
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 from pathlib import Path
 import os
 from colorama import Fore, Style
@@ -166,8 +166,8 @@ def mk_conditional_edges(graph_name, node_name, node_dict):
                 edge_code += f"{graph_name}.add_conditional_edges('{node_name}', after_{node_name}, ['{function}'])\n"
             else:
                 if "," in node_name:
-                    nodes = [f"'{n.strip()}'" for n in node_name.split(",")]
-                    edge_first_node_name = f"[{','.join(nodes)}]"
+                    node_names = [f"'{n.strip()}'" for n in node_name.split(",")]
+                    edge_first_node_name = f"[{','.join(node_names)}]"
                 else:
                     edge_first_node_name = (
                         f"'{node_name}'" if node_name != "START" else "START"
@@ -227,21 +227,37 @@ def {node_name}(state: {state_type}, *, config:Optional[RunnableConfig] = None):
 """
 
 # graph parameter is result of validate_graph
-def gen_nodes(graph: dict, found_functions: list[str] = None):
+def gen_nodes(graph: Union[Graph, dict], found_functions: list[str] = None):
+    """Generate code for graph nodes.
+    
+    Args:
+        graph: Either a Graph instance containing nodes and edges, or a dictionary with graph data
+        found_functions: Optional list of found function names
+    """
     nodes = []
     # workaround python mutable default argument problem (list is mutable, and created once at function definition time)
     if found_functions is None:
         found_functions = []
     found_function_names = [ff.function_name for ff in found_functions]
-    for node_name, node_data in graph.items():
+
+    # Handle both Graph and dict inputs
+    if isinstance(graph, Graph):
+        node_items = [(node, None) for node in graph.nodes]
+        state_type = graph.state_type if hasattr(graph, 'state_type') else 'default'
+    else:
+        node_items = graph.items()
+        state_type = 'default'
+
+    for node_name, node_data in node_items:
         # get file name and function name from found_functions
         l = [ff for ff in found_functions if ff.function_name == node_name]
         if node_name != "START":
             if len(l) == 1:
                 file_name, function_name = l[0].file_path, l[0].function_name
-                nodes.append(f"from {file_name.split(".")[0]} import {function_name}")
+                nodes.append(f"from {file_name.split('.')[0]} import {function_name}")
             else:
-                state_type = node_data.get('state', 'default')
+                if isinstance(graph, dict) and node_data is not None:
+                    state_type = node_data.get('state', 'default')
                 nodes.append(gen_node(node_name, state_type))
     return "\n".join(nodes)
 

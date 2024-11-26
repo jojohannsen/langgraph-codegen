@@ -361,7 +361,7 @@ class GraphDesignREPL:
         """Return the appropriate function for a command."""
         command_map = {
             'graph': lambda: gen_graph(self.graph_name, self.graph_spec),
-            'nodes': lambda: gen_nodes(self.graph['graph']) if 'graph' in self.graph else None,
+            'nodes': lambda: gen_nodes(self.graph['graph']) if isinstance(self.graph.get('graph'), Graph) else None,
             'conditions': lambda: gen_conditions(self.graph_spec),
             'state': lambda: gen_state(self.graph_spec),
             'code': self._generate_complete_code,
@@ -416,6 +416,7 @@ from operator import itemgetter
     
     def _print_help(self):
         """Print available commands."""
+        print("\nExperimental REPL Mode")
         print("Available commands: graph, nodes, conditions, state, code, dsl")
         print("Commands can be used with or without dashes (e.g. 'graph', '-graph', or '--graph')")
 
