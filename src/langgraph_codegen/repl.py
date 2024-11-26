@@ -361,7 +361,7 @@ class GraphDesignREPL:
         """Return the appropriate function for a command."""
         command_map = {
             'graph': lambda: gen_graph(self.graph_name, self.graph_spec),
-            'nodes': lambda: gen_nodes(self.graph['graph']) if isinstance(self.graph.get('graph'), Graph) else None,
+            'nodes': lambda: gen_nodes(self.graph['graph']) if self.graph.get('graph') else None,
             'conditions': lambda: gen_conditions(self.graph_spec),
             'state': lambda: gen_state(self.graph_spec),
             'code': self._generate_complete_code,
@@ -374,11 +374,10 @@ class GraphDesignREPL:
         """Save the code to a file."""
         if file_name:
             folder_name = file_name.split('_')[0]
-            file_name = f"{file_name.split('.')[0]}"
             # Create the folder if it doesn't exist
             Path(folder_name).mkdir(parents=True, exist_ok=True)
-            # Check for local copy first
-            local_path = Path(folder_name) / f"{file_name}.py"
+            # Use the file name as is, preserving the extension
+            local_path = Path(folder_name) / file_name
             with open(local_path, 'w') as f:
                 f.write(code)
             print(f"Saved code to {local_path}")
@@ -391,6 +390,8 @@ class GraphDesignREPL:
         high_level_command = high_level_command.lower()
         if high_level_command == "code":
             return f"{self.graph_name}_main.py"
+        elif high_level_command == "dsl":
+            return f"{self.graph_name}_{high_level_command}.txt"
         elif high_level_command in self.command_names:
             return f"{self.graph_name}_{high_level_command}.py"
         return None
@@ -427,6 +428,7 @@ from operator import itemgetter
         self._print_help()
         print("Type 'quit' to exit\n")
         last_code = "# No code has been shown yet"
+        last_code_user_input = None
         while True:
             try:
                 # Get input with the prompt and strip whitespace
@@ -440,8 +442,11 @@ from operator import itemgetter
                 # Handle generation commands
                 if user_input in self.commands:
                     if user_input.lower() == 'save':
-                        file_name = self._get_file(last_code_user_input)
-                        self._save_code(file_name, last_code)
+                        if last_code_user_input:
+                            file_name = self._get_file(last_code_user_input)
+                            self._save_code(file_name, last_code)
+                        else:
+                            print(f"\n{Fore.RED}No code has been generated yet to save{Style.RESET_ALL}\n")
                     else:
                         result = self.commands[user_input]()
                         if result:
