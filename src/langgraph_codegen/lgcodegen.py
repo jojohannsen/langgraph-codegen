@@ -19,7 +19,7 @@ from collections import namedtuple
 from typing_extensions import TypedDict
 
 # DO NOT EDIT, this is updated by runit script
-version="v0.1.34"
+version="v0.1.35"
 
 # Initialize colorama (needed for Windows)
 init()
@@ -356,6 +356,23 @@ def main():
         # First try to find the file as an example
         example_path = get_example_path(args.graph_file)
         file_path = example_path if example_path else args.graph_file
+        
+        # Add explicit messaging about which path is being used
+        graph_name = Path(args.graph_file).stem
+        local_folder = Path(graph_name)
+        local_file = local_folder / f"{graph_name}.txt"
+        
+        if local_file.exists():
+            print(f"{Fore.GREEN}Graph source: {Fore.BLUE}{local_file}{Style.RESET_ALL}")
+            file_path = local_file
+            python_files = list(local_folder.glob('*.py'))
+            if python_files:
+                files_str = ', '.join(f.name for f in python_files)
+                print(f"{Fore.GREEN}Python source: {Fore.BLUE}{local_folder}/ {Style.RESET_ALL}({files_str})")
+        elif example_path:
+            print(f"{Fore.GREEN}Graph source: {Fore.BLUE}{example_path}{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.GREEN}Graph source: {Fore.BLUE}{file_path}{Style.RESET_ALL}")
             
         # Read the specification file
         with open(file_path, 'r') as f:
@@ -363,7 +380,14 @@ def main():
 
         # If no generation flags are set, just show the file contents
         if not (args.graph or args.nodes or args.conditions or args.state or args.code):
-            print(f"{Fore.BLUE}{graph_spec}{Style.RESET_ALL}")
+            print(f"\n{Fore.BLUE}------ Graph START, {file_path} ------{Style.RESET_ALL}")
+            # Print each line, making comments gray
+            for line in graph_spec.splitlines():
+                if line.strip().startswith('#'):
+                    print(f"{Fore.LIGHTBLACK_EX}{line}{Style.RESET_ALL}")
+                else:
+                    print(f"{Fore.BLUE}{line}{Style.RESET_ALL}")
+            print(f"{Fore.BLUE}------ Graph END ------{Style.RESET_ALL}\n")
             return
             
         # Get graph name from file name (without extension)

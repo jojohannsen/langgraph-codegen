@@ -33,12 +33,12 @@ for arch in "${architectures[@]}"; do
     # Run the test
     python "$arch/$arch.py" > "actual_results/$arch.txt"
     
-    # Compare results
+    # Compare results while ignoring the first line
     python compare_test_runs.py "expected_results/$arch.txt" "actual_results/$arch.txt"
 
-    # test repl
+    # Test repl
     cat commands | lgcodegen "$arch" -i > "actual_results/$arch.commands.txt"
-    diff "expected_results/$arch.commands.txt" "actual_results/$arch.commands.txt"
+    diff <(tail -n +2 "expected_results/$arch.commands.txt") <(tail -n +2 "actual_results/$arch.commands.txt")
     
     # Verify required files exist
     required_files=(
