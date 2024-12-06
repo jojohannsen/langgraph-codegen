@@ -28,7 +28,7 @@ jobs:
         python setup.py sdist bdist_wheel
 
     - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@latest
+      uses: pypa/gh-action-pypi-publish@release/v1
       with:
         # No need to provide credentials as trusted publishing handles authentication
         # Ensure your PyPI project is configured with the correct trusted publisher settings
