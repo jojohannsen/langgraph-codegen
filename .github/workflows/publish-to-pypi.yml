@@ -34,9 +34,3 @@ jobs:
         # Ensure your PyPI project is configured with the correct trusted publisher settings
         repository_url: ${{ github.repository }}
         tag: ${{ github.ref_name }}
-    - name: Publish package
-      run: |
-        twine upload dist/*
-      env:
-        TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-        TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
