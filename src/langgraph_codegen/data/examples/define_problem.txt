@@ -1,0 +1,13 @@
+# conversationally get file name and class go use for graph state
+START(ClarifiableGraphState) => ask_human
+
+ask_human => extract_info
+
+extract_info
+  is_done => END
+  should_hand_off => delegate_control
+  => give_feedback
+
+give_feedback => ask_human
+
+delegate_control => END

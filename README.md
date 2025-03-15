@@ -208,6 +208,11 @@ third_node => END
 
 graph_code = gen_graph("my_graph", graph_spec)
 print(graph_code)
+
+# executing code gives compiled graph in variable 'my_graph'
+exec(graph_code)
+
+print(my_graph)
 ```
 
 Output is:

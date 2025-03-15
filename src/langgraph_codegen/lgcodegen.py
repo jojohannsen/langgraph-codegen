@@ -388,6 +388,26 @@ def main():
                 else:
                     print(f"{Fore.BLUE}{line}{Style.RESET_ALL}")
             print(f"{Fore.BLUE}------ Graph END ------{Style.RESET_ALL}\n")
+            
+            # Parse graph to get info
+            parsed_graph, start_node = parse_graph_spec(graph_spec)
+            state_class = parsed_graph[start_node]["state"]
+            
+            # Print summary info
+            print(f"{Fore.GREEN}State: {Fore.YELLOW}{state_class}{Style.RESET_ALL}")
+            nodes = [node for node in parsed_graph.keys() if node != "START"]
+            print(f"{Fore.GREEN}Nodes: {Fore.YELLOW}{', '.join(nodes)}{Style.RESET_ALL}")
+            
+            # Extract edge conditions
+            edge_conditions = []
+            for node, data in parsed_graph.items():
+                if "edges" in data:
+                    for edge in data["edges"]:
+                        condition = edge["condition"]
+                        if condition and condition != "true_fn":
+                            edge_conditions.append(f"{condition}")
+            
+            print(f"{Fore.GREEN}Edge Conditions: {Fore.YELLOW}{', '.join(edge_conditions)}{Style.RESET_ALL}")
             return
             
         # Get graph name from file name (without extension)
