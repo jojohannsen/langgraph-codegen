@@ -1,0 +1,11 @@
+START(SomeState) => guardrail
+
+guardrail => retrieval
+
+retrieval => agent
+
+agent
+  tool_condition => tools
+  => END
+
+tools => agent

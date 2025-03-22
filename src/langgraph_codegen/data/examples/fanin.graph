@@ -1,0 +1,15 @@
+START(SomeState) => planner
+
+planner
+  should_generate_data => dataset_generator
+  should_search => search_query_definer
+
+dataset_generator => summary_writer
+
+search_query_definer => knowledge_query
+
+knowledge_query => summary_writer
+
+summary_writer => exit
+
+exit => END

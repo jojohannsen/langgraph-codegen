@@ -9,7 +9,6 @@ from colorama import Fore, Style
 
 from langgraph_codegen.graph import Graph
 
-# Add these constants near the top of the file, after the imports
 ERROR_MISSING_IMPORTS = "Missing required imports for graph compilation"
 ERROR_START_NODE_NOT_FOUND = "START node not found at beginning of graph specification"
 
@@ -197,7 +196,7 @@ def mk_conditional_edges(graph_name, node_name, node_dict):
         # Create the dictionary string
         dict_entries = ", ".join([mk_entry(e) for e in edges])
         # If there's a single edge with a condition, dict needs END: END
-        if len(edges) == 1 and edges[0]["condition"] != "true_fn":
+        if not any(edge["destination"] == "END" for edge in edges):
             dict_entries += ", END: END"
         node_dict_str = f"{node_name}_conditional_edges = {{ {dict_entries} }}"
         multiple = any("," in edge["destination"] for edge in edges)
@@ -273,21 +272,34 @@ def find_conditions(node_dict):
 def random_one_or_zero():
     return random.choice([False, True])
 
-def gen_condition(condition, state_type):
+def gen_condition(condition, state_type, human=False):
+    condition_fn = f"human_bool('{condition}')" if human else "random_one_or_zero()"
     return f"""
 def {condition}(state: {state_type}) -> bool:
-    result = random_one_or_zero()
+    result = {condition_fn}
     print(f'CONDITION: {condition}. Result: {{result}}')
     return result
 """
 
-def gen_conditions(graph_spec):
+def gen_conditions(graph_spec, human=False):
     graph, start_node = parse_graph_spec(graph_spec)
     conditions = []
     state_type = graph[start_node]["state"]
+    if human:
+        conditions.append(f"""
+# GENERATED CODE: human boolean input for conditions
+from colorama import Fore, Style
+def human_bool(condition):
+    result = input(f"{{Fore.BLUE}}{{condition}}{{Style.RESET_ALL}} (y/n): {{Style.RESET_ALL}}")
+    if result.lower() == 'y':
+        return True
+    else:
+        return False
+""")
+        
     for node_name, node_dict in graph.items():
         for condition in find_conditions(node_dict):
-            conditions.append(gen_condition(condition, state_type))
+            conditions.append(gen_condition(condition, state_type, human))
     result = "# GENERATED CODE -- used for graph simulation mode"
     return result + "\n".join(conditions) if conditions else "# This graph has no conditional edges"
 

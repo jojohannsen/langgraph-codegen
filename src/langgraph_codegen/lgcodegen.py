@@ -141,11 +141,22 @@ def save_graph_spec(folder: Path, graph_name: str, graph_spec: str):
         print(f"{Fore.BLUE}Graph specification file {spec_file} already exists{Style.RESET_ALL}")
         return
     spec_file.write_text(graph_spec)
-    print(f"{Fore.GREEN}Saved graph specification to {Fore.BLUE}{spec_file}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}Graph specification: {Fore.BLUE}{spec_file}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}To regenerate python code after editing the graph spec: {Fore.BLUE}lgcodegen {spec_file} --code{Style.RESET_ALL}")
 
 import inspect
 from importlib.util import spec_from_file_location, module_from_spec
 from pathlib import Path
+
+def human_bool(condition):
+    """
+    Get human boolean input for a condition.
+    """
+    result = input(f"{Fore.BLUE}{condition}{Style.RESET_ALL} (y/n): {Style.RESET_ALL}")
+    if result.lower() == 'y':
+        return True
+    else:
+        return False
 
 def find_functions_in_files(node_functions, python_files):
     """
@@ -315,7 +326,7 @@ def main():
     parser.add_argument('--state', action='store_true', help='Generate state code')
     parser.add_argument('--code', action='store_true', help='Generate runnable graph')
     parser.add_argument('--seed', type=int, help='Random seed for reproducible tests')
-     
+    parser.add_argument('--human', action='store_true', help='Get human boolean input for conditions')
     # Single required argument
     parser.add_argument('graph_file', nargs='?', help='Path to the graph specification file or folder')
 
@@ -492,7 +503,7 @@ import random
             # Add components in specific order
             complete_code.append(gen_state(graph_spec, state_class_file))
             complete_code.append(gen_nodes(graph_dict))  
-            complete_code.append(gen_conditions(graph_spec))
+            complete_code.append(gen_conditions(graph_spec, args.human))
             ggresult = gen_graph(graph_name, graph_spec)
             complete_code.append(ggresult)
             
@@ -519,7 +530,7 @@ if __name__ == "__main__":
             # Join all code components and write to file
             full_code = "\n\n".join(complete_code)
             output_file.write_text(full_code)
-            print(f"{Fore.GREEN}Generated {Fore.BLUE}{output_file}{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}To run:  {Fore.BLUE}python {output_file}{Style.RESET_ALL}")
             return
                 
         # Handle individual component generation
@@ -528,7 +539,7 @@ if __name__ == "__main__":
         if args.nodes:
             print_python_code(gen_nodes(graph_dict), args.line_numbers)
         if args.conditions:
-            print_python_code(gen_conditions(graph_spec), args.line_numbers)
+            print_python_code(gen_conditions(graph_spec, args.human), args.line_numbers)
         if args.state:
             print_python_code(gen_state(graph_spec), args.line_numbers)
         if hasattr(graph_instance, 'errors') and graph_instance.errors:

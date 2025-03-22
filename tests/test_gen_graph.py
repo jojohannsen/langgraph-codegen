@@ -18,14 +18,11 @@ node1
     is_error => error_node
     => final_node
 
-node2
-    => END
+node2 => END
 
-error_node
-    => END
+error_node => END
 
-final_node
-    => END
+final_node => END
     """
 
     graph, start_node = parse_graph_spec(graph_spec)
@@ -58,21 +55,17 @@ final_node
 def test_parse_graph_spec_parallel_conditions():
     # Test graph with parallel conditions (comma-separated destinations)
     graph_spec = """
-    start(State)
-        => node1, node2
+    start(State) => node1, node2
 
     node1
         is_ready => final_node
         => error_node
 
-    node2
-        => final_node
+    node2 => final_node
 
-    final_node
-        => END
+    final_node => END
 
-    error_node
-        => END
+    error_node => END
     """
 
     graph, start_node = parse_graph_spec(graph_spec)
@@ -102,14 +95,11 @@ def test_parse_graph_spec_workflow():
         is_invalid => handle_error
         => END
 
-    transform_data
-        => store_result
+    transform_data => store_result
 
-    store_result
-        => END
+    store_result => END
 
-    handle_error
-        => END
+    handle_error => END
     """
 
     graph, start_node = parse_graph_spec(graph_spec)
