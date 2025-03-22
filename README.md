@@ -44,16 +44,20 @@ replan_step
 We generate the graph nodes and conditions, these go into a folder with the same name as the graph.  All the python code (state, nodes, conditions, main) go into a single python file.   Running that file invokes the graph.
 
 ```bash
-(py312) johannesjohannsen@Johanness-MacBook-Pro tests % lgcodegen plan_and_execute --code
-LangGraph CodeGen v0.1.26
-Creating folder plan_and_execute
-Saved graph specification to plan_and_execute/plan_and_execute.txt
-node_functions=['plan_step', 'execute_step', 'replan_step']
-python_files=[]
-found_functions=[]
-Generated plan_and_execute/plan_and_execute.py
-(py312) johannesjohannsen@Johanness-MacBook-Pro tests % python plan_and_execute/plan_and_execute.py
+(py312) johannesjohannsen@Johanness-MacBook-Pro langgraph-codegen % lgcodegen plan_and_execute --code --human
+LangGraph CodeGen 0.1.44
+Graph source: plan_and_execute/plan_and_execute.txt
+Python source: plan_and_execute/ (plan_and_execute.py)
+File plan_and_execute/plan_and_execute.py exists. Overwrite? (y/n): y
+Graph specification file plan_and_execute/plan_and_execute.txt already exists
+To run:  python plan_and_execute/plan_and_execute.py
 
+```
+
+When it runs, conditions in the graph get human y/n prompts:
+```
+
+(py312) johannesjohannsen@Johanness-MacBook-Pro langgraph-codegen % python plan_and_execute/plan_and_execute.py
 NODE: plan_step
 
     {'plan_step': {'nodes_visited': 'plan_step', 'counter': 1}}
@@ -63,6 +67,7 @@ NODE: execute_step
     {'execute_step': {'nodes_visited': 'execute_step', 'counter': 2}}
 
 NODE: replan_step
+is_done (y/n): n   <----- THIS IS HUMAN INPUT
 CONDITION: is_done. Result: False
 
     {'replan_step': {'nodes_visited': 'replan_step', 'counter': 3}}
@@ -72,12 +77,24 @@ NODE: execute_step
     {'execute_step': {'nodes_visited': 'execute_step', 'counter': 4}}
 
 NODE: replan_step
-CONDITION: is_done. Result: True
+is_done (y/n): n
+CONDITION: is_done. Result: False
 
     {'replan_step': {'nodes_visited': 'replan_step', 'counter': 5}}
 
+NODE: execute_step
+
+    {'execute_step': {'nodes_visited': 'execute_step', 'counter': 6}}
+
+NODE: replan_step
+is_done (y/n): y
+CONDITION: is_done. Result: True
+
+    {'replan_step': {'nodes_visited': 'replan_step', 'counter': 7}}
+
 DONE STREAMING, final state:
-StateSnapshot(values={'nodes_visited': ['plan_step', 'execute_step', 'replan_step', 'execute_step', 'replan_step'], 'counter': 5}, next=(), config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1efa12ae-9b91-609e-8005-a4720a865e53'}}, metadata={'source': 'loop', 'writes': {'replan_step': {'nodes_visited': 'replan_step', 'counter': 5}}, 'thread_id': '1', 'step': 5, 'parents': {}}, created_at='2024-11-12T19:18:35.369276+00:00', parent_config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1efa12ae-9b8f-65dc-8004-242cede8358e'}}, tasks=())
+StateSnapshot(values={'nodes_visited': ['plan_step', 'execute_step', 'replan_step', 'execute_step', 'replan_step', 'execute_step', 'replan_step'], 'counter': 7}, next=(), config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1f007763-8d62-667e-8007-aab71890c408'}}, metadata={'source': 'loop', 'writes': {'replan_step': {'nodes_visited': 'replan_step', 'counter': 7}}, 'thread_id': '1', 'step': 7, 'parents': {}}, created_at='2025-03-22T23:34:38.957902+00:00', parent_config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1f007763-8475-61b0-8006-3e2db0d9da30'}}, tasks=())
+
 ```
 
 
@@ -126,9 +143,12 @@ StateSnapshot(values={'nodes_visited': ['get_docs', 'format_docs', 'format_promp
 
 But in this case, I have some node functions that I've written, let's say file is `my_nodes.py`
 
-This file only has functions, there is nothing about the graph.
+This file has the graph state and nodes.  If this is in same folder as generated code, the generated code will use these for state and nodes -- the mock implementations will not be generated.
 
 ```python
+# my_nodes.py 
+# - class for Graph State (AgentState below)
+# - nodes: get_docs, format_prompt, format_docs, generate
 from langchain.schema import Document
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
