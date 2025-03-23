@@ -225,7 +225,28 @@ def {node_name}(state: {state_type}, *, config:Optional[RunnableConfig] = None):
     return {{ 'nodes_visited': '{node_name}', 'counter': state['counter'] + 1 }}
 """
 
-# graph parameter is result of validate_graph
+def process_node(node_name, node_data, found_functions, graph, state_type):
+    """Process a single node and generate appropriate code."""
+    if node_name == "START":
+        return None
+            
+    matching_functions = [ff for ff in found_functions if ff.function_name == node_name]
+    if len(matching_functions) == 1:
+        file_name, function_name = matching_functions[0].file_path, matching_functions[0].function_name
+        return f"from {file_name.split('.')[0]} import {function_name}"
+    else:
+        if isinstance(graph, dict) and node_data is not None:
+            state_type = node_data.get('state', 'default')
+        return gen_node(node_name, state_type)
+
+def gen_node_names(node_names):
+    if "," in node_names:
+        names = [n.strip() for n in node_names.split(",")]
+        for name in names:
+            yield name
+    else:
+        yield node_names
+
 def gen_nodes(graph: Union[Graph, dict], found_functions: list[str] = None):
     """Generate code for graph nodes.
     
@@ -248,17 +269,11 @@ def gen_nodes(graph: Union[Graph, dict], found_functions: list[str] = None):
         node_items = sorted(graph.items(), key=lambda x: x[0])
         state_type = 'default'
 
-    for node_name, node_data in node_items:
-        # get file name and function name from found_functions
-        l = [ff for ff in found_functions if ff.function_name == node_name]
-        if node_name != "START":
-            if len(l) == 1:
-                file_name, function_name = l[0].file_path, l[0].function_name
-                nodes.append(f"from {file_name.split('.')[0]} import {function_name}")
-            else:
-                if isinstance(graph, dict) and node_data is not None:
-                    state_type = node_data.get('state', 'default')
-                nodes.append(gen_node(node_name, state_type))
+    for node_names, node_data in node_items:
+        for node_name in gen_node_names(node_names):
+            node_code = process_node(node_name, node_data, found_functions, graph, state_type)
+            if node_code:
+                nodes.append(node_code)
     return "\n".join(nodes)
 
 def find_conditions(node_dict):
@@ -311,9 +326,12 @@ from typing import Annotated, TypedDict
 def add_str_to_list(a=None, b=""):
     return (a if a is not None else []) + ([b] if not isinstance(b, list) else b)
 
+def add_int(a, b):
+    return b+1 if a==b else b
+
 class {state_class}(TypedDict):
     nodes_visited: Annotated[list[str], add_str_to_list]
-    counter: int
+    counter: Annotated[int, add_int]
 
 def initial_state_{state_class}():
     return {{ 'nodes_visited': [], 'counter': 0 }}
