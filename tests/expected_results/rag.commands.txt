@@ -1,4 +1,4 @@
-LangGraph CodeGen v0.1.33
+LangGraph CodeGen v0.1.47
 Using graph file: rag/rag.txt
 
 Welcome to the LangGraph Design REPL!
@@ -11,168 +11,158 @@ Type 'quit' to exit
 
 lgcodegen: 
 
-# GENERATED code, creates compiled graph: rag                                                                
-from langgraph.graph import START, END, StateGraph                                                           
-from langgraph.checkpoint.memory import MemorySaver                                                          
-import sqlite3                                                                                               
-                                                                                                             
-checkpoint_saver = MemorySaver()                                                                             
-rag = StateGraph(AgentState)                                                                                 
-rag.add_node('get_docs', get_docs)                                                                           
-rag.add_node('format_docs', format_docs)                                                                     
-rag.add_node('format_prompt', format_prompt)                                                                 
-rag.add_node('generate', generate)                                                                           
-rag.add_edge(START, 'get_docs')                                                                              
-rag.add_edge('get_docs', 'format_docs')                                                                      
-rag.add_edge('format_docs', 'format_prompt')                                                                 
-rag.add_edge('format_prompt', 'generate')                                                                    
-rag.add_edge('generate', END)                                                                                
-                                                                                                             
-rag = rag.compile(checkpointer=checkpoint_saver)                                                             
+# GENERATED code, creates compiled graph: rag                                                                       
+from langgraph.graph import START, END, StateGraph                                                                  
+from langgraph.checkpoint.memory import MemorySaver                                                                 
+import sqlite3                                                                                                      
+                                                                                                                    
+checkpoint_saver = MemorySaver()                                                                                    
+builder_rag = StateGraph(AgentState)                                                                                
+builder_rag.add_node('get_docs', get_docs)                                                                          
+builder_rag.add_node('format_docs', format_docs)                                                                    
+builder_rag.add_node('format_prompt', format_prompt)                                                                
+builder_rag.add_node('generate', generate)                                                                          
+builder_rag.add_edge(START, 'get_docs')                                                                             
+builder_rag.add_edge('get_docs', 'format_docs')                                                                     
+builder_rag.add_edge('format_docs', 'format_prompt')                                                                
+builder_rag.add_edge('format_prompt', 'generate')                                                                   
+builder_rag.add_edge('generate', END)                                                                               
+                                                                                                                    
+rag = builder_rag.compile(checkpointer=checkpoint_saver)                                                            
 
 
 lgcodegen: Saved code to rag/rag_graph.py
 lgcodegen: 
 
-                                                                                                             
-def END(state: default, *, config:Optional[RunnableConfig] = None):                                          
-    print(f'NODE: END')                                                                                      
-    return { 'nodes_visited': 'END', 'counter': state['counter'] + 1 }                                       
-                                                                                                             
-                                                                                                             
-def format_docs(state: default, *, config:Optional[RunnableConfig] = None):                                  
-    print(f'NODE: format_docs')                                                                              
-    return { 'nodes_visited': 'format_docs', 'counter': state['counter'] + 1 }                               
-                                                                                                             
-                                                                                                             
-def format_prompt(state: default, *, config:Optional[RunnableConfig] = None):                                
-    print(f'NODE: format_prompt')                                                                            
-    return { 'nodes_visited': 'format_prompt', 'counter': state['counter'] + 1 }                             
-                                                                                                             
-                                                                                                             
-def generate(state: default, *, config:Optional[RunnableConfig] = None):                                     
-    print(f'NODE: generate')                                                                                 
-    return { 'nodes_visited': 'generate', 'counter': state['counter'] + 1 }                                  
-                                                                                                             
-                                                                                                             
-def get_docs(state: default, *, config:Optional[RunnableConfig] = None):                                     
-    print(f'NODE: get_docs')                                                                                 
-    return { 'nodes_visited': 'get_docs', 'counter': state['counter'] + 1 }                                  
-                                                                                                             
+def format_docs(state: default, *, config:Optional[RunnableConfig] = None):                                         
+    print(f'NODE: format_docs')                                                                                     
+    return { 'nodes_visited': 'format_docs', 'counter': state['counter'] + 1 }                                      
+                                                                                                                    
+def format_prompt(state: default, *, config:Optional[RunnableConfig] = None):                                       
+    print(f'NODE: format_prompt')                                                                                   
+    return { 'nodes_visited': 'format_prompt', 'counter': state['counter'] + 1 }                                    
+                                                                                                                    
+def generate(state: default, *, config:Optional[RunnableConfig] = None):                                            
+    print(f'NODE: generate')                                                                                        
+    return { 'nodes_visited': 'generate', 'counter': state['counter'] + 1 }                                         
+                                                                                                                    
+def get_docs(state: default, *, config:Optional[RunnableConfig] = None):                                            
+    print(f'NODE: get_docs')                                                                                        
+    return { 'nodes_visited': 'get_docs', 'counter': state['counter'] + 1 }                                         
+                                                                                                                    
 
 
 lgcodegen: Saved code to rag/rag_nodes.py
 lgcodegen: 
 
-# This graph has no conditional edges                                                                        
+# This graph has no conditional edges                                                                               
 
 
 lgcodegen: Saved code to rag/rag_conditions.py
 lgcodegen: 
 
-                                                                                                             
-# GENERATED CODE: mock graph state                                                                           
-from typing import Annotated, TypedDict                                                                      
-                                                                                                             
-def add_str_to_list(a=None, b=""):                                                                           
-    return (a if a is not None else []) + ([b] if not isinstance(b, list) else b)                            
-                                                                                                             
-class AgentState(TypedDict):                                                                                 
-    nodes_visited: Annotated[list[str], add_str_to_list]                                                     
-    counter: int                                                                                             
-                                                                                                             
-def initial_state_AgentState():                                                                              
-    return { 'nodes_visited': [], 'counter': 0 }                                                             
-                                                                                                             
+                                                                                                                    
+# GENERATED CODE: mock graph state                                                                                  
+from typing import Annotated, TypedDict                                                                             
+                                                                                                                    
+def add_str_to_list(a=None, b=""):                                                                                  
+    return (a if a is not None else []) + ([b] if not isinstance(b, list) else b)                                   
+                                                                                                                    
+def add_int(a, b):                                                                                                  
+    if b == 0: return 0                                                                                             
+    return b+1 if a==b else b                                                                                       
+                                                                                                                    
+class AgentState(TypedDict):                                                                                        
+    nodes_visited: Annotated[list[str], add_str_to_list]                                                            
+    counter: Annotated[int, add_int]                                                                                
+                                                                                                                    
+def initial_state_AgentState():                                                                                     
+    return { 'nodes_visited': [], 'counter': 0 }                                                                    
+                                                                                                                    
 
 
 lgcodegen: Saved code to rag/rag_state.py
 lgcodegen: 
 
-from typing import Dict, TypedDict, Annotated, Optional                                                      
-from langgraph.graph import StateGraph, Graph                                                                
-from langchain_core.messages.tool import ToolMessage                                                         
-from langchain_core.runnables.config import RunnableConfig                                                   
-from operator import itemgetter                                                                              
-                                                                                                             
-                                                                                                             
-                                                                                                             
-# GENERATED CODE: mock graph state                                                                           
-from typing import Annotated, TypedDict                                                                      
-                                                                                                             
-def add_str_to_list(a=None, b=""):                                                                           
-    return (a if a is not None else []) + ([b] if not isinstance(b, list) else b)                            
-                                                                                                             
-class AgentState(TypedDict):                                                                                 
-    nodes_visited: Annotated[list[str], add_str_to_list]                                                     
-    counter: int                                                                                             
-                                                                                                             
-def initial_state_AgentState():                                                                              
-    return { 'nodes_visited': [], 'counter': 0 }                                                             
-                                                                                                             
-                                                                                                             
-                                                                                                             
-def END(state: default, *, config:Optional[RunnableConfig] = None):                                          
-    print(f'NODE: END')                                                                                      
-    return { 'nodes_visited': 'END', 'counter': state['counter'] + 1 }                                       
-                                                                                                             
-                                                                                                             
-def format_docs(state: default, *, config:Optional[RunnableConfig] = None):                                  
-    print(f'NODE: format_docs')                                                                              
-    return { 'nodes_visited': 'format_docs', 'counter': state['counter'] + 1 }                               
-                                                                                                             
-                                                                                                             
-def format_prompt(state: default, *, config:Optional[RunnableConfig] = None):                                
-    print(f'NODE: format_prompt')                                                                            
-    return { 'nodes_visited': 'format_prompt', 'counter': state['counter'] + 1 }                             
-                                                                                                             
-                                                                                                             
-def generate(state: default, *, config:Optional[RunnableConfig] = None):                                     
-    print(f'NODE: generate')                                                                                 
-    return { 'nodes_visited': 'generate', 'counter': state['counter'] + 1 }                                  
-                                                                                                             
-                                                                                                             
-def get_docs(state: default, *, config:Optional[RunnableConfig] = None):                                     
-    print(f'NODE: get_docs')                                                                                 
-    return { 'nodes_visited': 'get_docs', 'counter': state['counter'] + 1 }                                  
-                                                                                                             
-                                                                                                             
-# This graph has no conditional edges                                                                        
-                                                                                                             
-# GENERATED code, creates compiled graph: rag                                                                
-from langgraph.graph import START, END, StateGraph                                                           
-from langgraph.checkpoint.memory import MemorySaver                                                          
-import sqlite3                                                                                               
-                                                                                                             
-checkpoint_saver = MemorySaver()                                                                             
-rag = StateGraph(AgentState)                                                                                 
-rag.add_node('get_docs', get_docs)                                                                           
-rag.add_node('format_docs', format_docs)                                                                     
-rag.add_node('format_prompt', format_prompt)                                                                 
-rag.add_node('generate', generate)                                                                           
-rag.add_edge(START, 'get_docs')                                                                              
-rag.add_edge('get_docs', 'format_docs')                                                                      
-rag.add_edge('format_docs', 'format_prompt')                                                                 
-rag.add_edge('format_prompt', 'generate')                                                                    
-rag.add_edge('generate', END)                                                                                
-                                                                                                             
-rag = rag.compile(checkpointer=checkpoint_saver)                                                             
+from typing import Dict, TypedDict, Annotated, Optional                                                             
+from langgraph.graph import StateGraph, Graph                                                                       
+from langchain_core.messages.tool import ToolMessage                                                                
+from langchain_core.runnables.config import RunnableConfig                                                          
+from operator import itemgetter                                                                                     
+                                                                                                                    
+                                                                                                                    
+                                                                                                                    
+# GENERATED CODE: mock graph state                                                                                  
+from typing import Annotated, TypedDict                                                                             
+                                                                                                                    
+def add_str_to_list(a=None, b=""):                                                                                  
+    return (a if a is not None else []) + ([b] if not isinstance(b, list) else b)                                   
+                                                                                                                    
+def add_int(a, b):                                                                                                  
+    if b == 0: return 0                                                                                             
+    return b+1 if a==b else b                                                                                       
+                                                                                                                    
+class AgentState(TypedDict):                                                                                        
+    nodes_visited: Annotated[list[str], add_str_to_list]                                                            
+    counter: Annotated[int, add_int]                                                                                
+                                                                                                                    
+def initial_state_AgentState():                                                                                     
+    return { 'nodes_visited': [], 'counter': 0 }                                                                    
+                                                                                                                    
+                                                                                                                    
+def format_docs(state: default, *, config:Optional[RunnableConfig] = None):                                         
+    print(f'NODE: format_docs')                                                                                     
+    return { 'nodes_visited': 'format_docs', 'counter': state['counter'] + 1 }                                      
+                                                                                                                    
+def format_prompt(state: default, *, config:Optional[RunnableConfig] = None):                                       
+    print(f'NODE: format_prompt')                                                                                   
+    return { 'nodes_visited': 'format_prompt', 'counter': state['counter'] + 1 }                                    
+                                                                                                                    
+def generate(state: default, *, config:Optional[RunnableConfig] = None):                                            
+    print(f'NODE: generate')                                                                                        
+    return { 'nodes_visited': 'generate', 'counter': state['counter'] + 1 }                                         
+                                                                                                                    
+def get_docs(state: default, *, config:Optional[RunnableConfig] = None):                                            
+    print(f'NODE: get_docs')                                                                                        
+    return { 'nodes_visited': 'get_docs', 'counter': state['counter'] + 1 }                                         
+                                                                                                                    
+                                                                                                                    
+# This graph has no conditional edges                                                                               
+                                                                                                                    
+# GENERATED code, creates compiled graph: rag                                                                       
+from langgraph.graph import START, END, StateGraph                                                                  
+from langgraph.checkpoint.memory import MemorySaver                                                                 
+import sqlite3                                                                                                      
+                                                                                                                    
+checkpoint_saver = MemorySaver()                                                                                    
+builder_rag = StateGraph(AgentState)                                                                                
+builder_rag.add_node('get_docs', get_docs)                                                                          
+builder_rag.add_node('format_docs', format_docs)                                                                    
+builder_rag.add_node('format_prompt', format_prompt)                                                                
+builder_rag.add_node('generate', generate)                                                                          
+builder_rag.add_edge(START, 'get_docs')                                                                             
+builder_rag.add_edge('get_docs', 'format_docs')                                                                     
+builder_rag.add_edge('format_docs', 'format_prompt')                                                                
+builder_rag.add_edge('format_prompt', 'generate')                                                                   
+builder_rag.add_edge('generate', END)                                                                               
+                                                                                                                    
+rag = builder_rag.compile(checkpointer=checkpoint_saver)                                                            
 
 
 lgcodegen: Saved code to rag/rag_main.py
 lgcodegen: 
 
-# RAG without LCEL                                                                                           
-START(AgentState) => get_docs                                                                                
-# retrieve documents from the vector database                                                                
-get_docs => format_docs                                                                                      
-# format the documents into text so they can be used in prompt                                               
-format_docs => format_prompt                                                                                 
-# format the documents into a prompt                                                                         
-format_prompt => generate                                                                                    
-# generate a response using the formatted prompt                                                             
-generate => END                                                                                              
-                                                                                                             
+# RAG without LCEL                                                                                                  
+START(AgentState) => get_docs                                                                                       
+# retrieve documents from the vector database                                                                       
+get_docs => format_docs                                                                                             
+# format the documents into text so they can be used in prompt                                                      
+format_docs => format_prompt                                                                                        
+# format the documents into a prompt                                                                                
+format_prompt => generate                                                                                           
+# generate a response using the formatted prompt                                                                    
+generate => END                                                                                                     
+                                                                                                                    
 
 
 lgcodegen: Saved code to rag/rag_dsl.txt

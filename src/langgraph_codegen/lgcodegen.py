@@ -7,7 +7,7 @@ from pathlib import Path
 from langgraph_codegen.gen_graph import (
     gen_graph, gen_nodes, gen_state, 
     gen_conditions, validate_graph, get_example_path,
-    parse_graph_spec
+    parse_graph_spec, process_node
 )
 from colorama import init, Fore, Style
 from rich import print as rprint
@@ -142,7 +142,7 @@ def save_graph_spec(folder: Path, graph_name: str, graph_spec: str):
         return
     spec_file.write_text(graph_spec)
     print(f"{Fore.GREEN}Graph specification: {Fore.BLUE}{spec_file}{Style.RESET_ALL}")
-    print(f"{Fore.GREEN}To regenerate python code after editing the graph spec: {Fore.BLUE}lgcodegen {spec_file} --code{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}To regenerate python cod from graph spec: {Fore.BLUE}lgcodegen {spec_file} --code{Style.RESET_ALL}")
 
 import inspect
 from importlib.util import spec_from_file_location, module_from_spec
@@ -327,6 +327,7 @@ def main():
     parser.add_argument('--code', action='store_true', help='Generate runnable graph')
     parser.add_argument('--seed', type=int, help='Random seed for reproducible tests')
     parser.add_argument('--human', action='store_true', help='Get human boolean input for conditions')
+    parser.add_argument('--node', help='Generate code for a specific node')
     # Single required argument
     parser.add_argument('graph_file', nargs='?', help='Path to the graph specification file or folder')
 
@@ -379,7 +380,7 @@ def main():
             python_files = list(local_folder.glob('*.py'))
             if python_files:
                 files_str = ', '.join(f.name for f in python_files)
-                print(f"{Fore.GREEN}Python source: {Fore.BLUE}{local_folder}/ {Style.RESET_ALL}({files_str})")
+                print(f"{Fore.GREEN}Python source: {Fore.BLUE}{local_folder}/{files_str}{Style.RESET_ALL}")
         elif example_path:
             print(f"{Fore.GREEN}Graph source: {Fore.BLUE}{example_path}{Style.RESET_ALL}")
         else:
@@ -388,6 +389,27 @@ def main():
         # Read the specification file
         with open(file_path, 'r') as f:
             graph_spec = f.read()
+
+        # Parse graph to get info for node generation
+        parsed_graph, start_node = parse_graph_spec(graph_spec)
+        graph_dict = parsed_graph
+        state_class = parsed_graph[start_node]["state"]
+
+        # Handle single node generation if --node is specified
+        if args.node:
+            if args.node not in graph_dict:
+                print(f"{Fore.RED}Error: Node '{args.node}' not found in graph{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}Available nodes: {', '.join(n for n in graph_dict.keys() if n != 'START')}{Style.RESET_ALL}")
+                sys.exit(1)
+            
+            # Generate imports
+            imports = """from typing import Dict, TypedDict, Annotated, Optional
+from langgraph.graph import StateGraph, Graph
+from langchain_core.messages.tool import ToolMessage
+from langchain_core.runnables.config import RunnableConfig
+"""
+            print_python_code(process_node(args.node, graph_dict[args.node], [], graph_dict, state_class, single_node=True), args.line_numbers)
+            return
 
         # If no generation flags are set, just show the file contents
         if not (args.graph or args.nodes or args.conditions or args.state or args.code):
@@ -448,6 +470,7 @@ def main():
         graph_dict = parsed_graph  # Use the parsed dictionary version instead of the Graph instance
         state_class = graph_dict[start_node]["state"]
         state_class_file = None
+
         if args.code:
             # Get graph name from file name (without extension)
             graph_name = Path(args.graph_file).stem
@@ -506,7 +529,6 @@ import random
             complete_code.append(gen_conditions(graph_spec, args.human))
             ggresult = gen_graph(graph_name, graph_spec)
             complete_code.append(ggresult)
-            
             init_state = f"init_state({state_class})" if state_class_file else f"initial_state_{state_class}()"
             # Add main section
             main_section = f"""

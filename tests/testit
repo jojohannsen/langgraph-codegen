@@ -8,11 +8,11 @@ set -e
 
 # List of architectures to test
 architectures=(
-    "multi_agent_collaboration"
-    "plan_and_execute"
-    "rag"
-    "react_agent"
-    "simple"
+    "multi_agent_collaboration" 
+    "plan_and_execute" 
+    "rag" 
+    "react_agent" 
+    "simple" 
     "supervisor"
 )
 
@@ -38,7 +38,7 @@ for arch in "${architectures[@]}"; do
 
     # Test repl
     cat commands | lgcodegen "$arch" -i > "actual_results/$arch.commands.txt"
-    diff <(tail -n +2 "expected_results/$arch.commands.txt") <(tail -n +2 "actual_results/$arch.commands.txt")
+    diff -b <(tail -n +2 "expected_results/$arch.commands.txt") <(tail -n +2 "actual_results/$arch.commands.txt")
     
     # Verify required files exist
     required_files=(
@@ -68,10 +68,8 @@ for arch in "${architectures[@]}"; do
     fi
 done
 
-# Clean up what got created
-rm -rf actual_results
 for arch in "${architectures[@]}"; do
-    echo "Removing: $arch"
+    echo "Cleanup architecture: $arch"
     
     # Clean up previous generation
     rm -rf "$arch"

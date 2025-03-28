@@ -27,8 +27,11 @@ def transform_graph_spec(graph_spec: str) -> str:
         if "=>" in line and not line[0].isspace():
             parts = [p.strip() for p in line.split("=>")]
             if parts[0]:
-                transformed_lines.append(parts[0])
-                transformed_lines.append(f"  => {parts[1]}")
+                # parts[0] might be a comma separated list of node names
+                node_names = [n.strip() for n in parts[0].split(",")]
+                for node_name in node_names:
+                    transformed_lines.append(node_name)
+                    transformed_lines.append(f"  => {parts[1]}")
             else:
                 transformed_lines.append(line)
         else:
@@ -101,7 +104,7 @@ def mk_conditions(node_name, node_dict):
     edges = node_dict["edges"]
     state_type = node_dict["state"]
 
-    # Special case: single 'true_fn' condition
+    # Return empty string if all edges are true_fn
     if all_true_fn(edges):
         return ""
 
@@ -111,123 +114,107 @@ def mk_conditions(node_name, node_dict):
         condition = edge["condition"]
         destination = edge["destination"]
 
-        if "," in destination:
-            # Split the destination by commas and strip spaces
+        # Format return statement based on destination type
+        if destination == "END":
+            return_statement = "return 'END'"
+        elif "," in destination:
             destinations = [d.strip() for d in destination.split(",")]
-            # Format the return statement with a list
             return_statement = f"return {destinations}"
         else:
-            # Format the return statement with a single value
             return_statement = f"return '{destination}'"
 
+        # Add condition and return statement
         if condition == "true_fn":
             function_body.append(f"    {return_statement}")
-            break  # Exit the loop as this is always true
-        elif i == 0:
-            function_body.append(f"    if {condition}(state):")
+            break
         else:
-            function_body.append(f"    elif {condition}(state):")
+            function_body.append(f"    {'if' if i == 0 else 'elif'} {condition}(state):")
+            function_body.append(f"        {return_statement}")
 
-        function_body.append(f"        {return_statement}")
-
-    # Only add the else clause if we didn't encounter 'true_fn'
+    # Add default END case if needed
     if condition != "true_fn":
-        if len(edges) > 1:
-            function_body.append("    else:")
-            function_body.append("        # destination not found, default to END")
-            function_body.append('        return END')
-        else:
-            function_body.append("    return END")
+        function_body.append("    return 'END'")  # Return END as string
     function_body.append("")
 
     return "\n".join(function_body)
 
 
-def mk_conditional_edges(graph_name, node_name, node_dict):
+def mk_conditional_edges(builder_graph, node_name, node_dict):
     edges = node_dict["edges"]
 
-    # Case 1: parallel output
+    # Case 1: parallel output (all edges are true_fn)
     if all_true_fn(edges):
-        edge_code = ""
+        edge_lines = []
         for edge in edges:
             destination = edge["destination"]
+            
             if destination == "END":
-                edge_code += f"{graph_name}.add_edge('{node_name}', END)\n"
-            elif "," in destination:
-                data = destination.split(",")
-                for x in data:
-                    x = x.strip()
-                    edge_code += f"{graph_name}.add_edge('{node_name}', '{x}')\n"
-            elif "[" in destination:  # parallel output destinations,
+                edge_lines.append(f"{builder_graph}.add_edge('{node_name}', END)")
+            elif "[" in destination:  # parallel output destinations
                 function, var_name, state_field = parse_string(destination)
-                edge_code += f"def after_{node_name}(state):\n"
-                edge_code += f"    return [Send('{function}', {{'{var_name}': s}}) for s in state['{state_field}']]\n"
-                edge_code += f"{graph_name}.add_conditional_edges('{node_name}', after_{node_name}, ['{function}'])\n"
+                edge_lines.extend([
+                    f"def after_{node_name}(state):",
+                    f"    return [Send('{function}', {{'{var_name}': s}}) for s in state['{state_field}']]",
+                    f"{builder_graph}.add_conditional_edges('{node_name}', after_{node_name}, ['{function}'])"
+                ])
+            elif node_name == "START":
+                edge_lines.append(f"{builder_graph}.add_edge(START, '{destination}')")
             else:
-                if "," in node_name:
-                    node_names = [f"'{n.strip()}'" for n in node_name.split(",")]
-                    edge_first_node_name = f"[{','.join(node_names)}]"
-                else:
-                    edge_first_node_name = (
-                        f"'{node_name}'" if node_name != "START" else "START"
-                    )
-                edge_code += (
-                    f"{graph_name}.add_edge({edge_first_node_name}, '{destination}')\n"
-                )
-        return edge_code.rstrip()
+                # Handle comma-separated destinations
+                destinations = [d.strip() for d in destination.split(",")] if "," in destination else [destination]
+                for dest in destinations:
+                    edge_lines.append(f"{builder_graph}.add_edge('{node_name}', '{dest}')")
+        
+        return "\n".join(edge_lines)
 
     # Case 2: Multiple conditions
+    destinations = set()
+    edge_mappings = []
+    
+    for edge in edges:
+        dest = edge["destination"]
+        if dest == "END":
+            edge_mappings.append("'END': END")
+        else:
+            dests = [f"'{d.strip()}'" for d in dest.split(",")] if "," in dest else [f"'{dest}'"]
+            destinations.update(dests[0].strip("'") for d in dests)
+            if len(dests) > 1:
+                edge_mappings.append(f"'{dest}': [{','.join(dests)}]")
+            else:
+                edge_mappings.append(f"'{dest}': {dests[0]}")
+    
+    # Only add END mapping if there's no explicit END destination
+    has_end = any(edge["destination"] == "END" for edge in edges)
+    no_true_fn = not any("true_fn" in edge["condition"] for edge in edges)
+    if not has_end and no_true_fn:
+        edge_mappings.append("'END': END")
+    
+    if any("," in edge["destination"] for edge in edges):
+        return f"{node_name}_conditional_edges = {list(destinations)}\n{builder_graph}.add_conditional_edges('{node_name}', after_{node_name}, {node_name}_conditional_edges)\n"
     else:
-        # Helper function to create dictionary entries
-        def maybe_multiple(s):
-            if "," in s:
-                data = s.split(",")
-                quoted = [f"'{x.strip()}'" for x in data]
-                return "[" + ",".join(quoted) + "]"
-            else:
-                return f"'{s}'"
-
-        def mk_entry(edge):
-            if edge["destination"] == "END":
-                return f"'{edge['destination']}': END"
-            else:
-                return f"'{edge['destination']}': {maybe_multiple(edge['destination'])}"
-
-        # Create the dictionary string
-        dict_entries = ", ".join([mk_entry(e) for e in edges])
-        # If there's a single edge with a condition, dict needs END: END
-        if not any(edge["destination"] == "END" for edge in edges):
-            dict_entries += ", END: END"
-        node_dict_str = f"{node_name}_conditional_edges = {{ {dict_entries} }}"
-        multiple = any("," in edge["destination"] for edge in edges)
-        if multiple:
-            # not really understanding, but it seems that in this case, we just have a list of
-            # nodes instead of a dict for third parameter
-            s = set()
-            for edge in edges:
-                destinations = edge["destination"].split(",")
-                for dest in destinations:
-                    s.add(dest.strip())
-            node_dict_str = f"{node_name}_conditional_edges = {list(s)}"
-
-        # Create the add_conditional_edges call
-        add_edges_str = f"{graph_name}.add_conditional_edges( '{node_name}', after_{node_name}, {node_name}_conditional_edges )"
-        return f"{node_dict_str}\n{add_edges_str}\n"
+        return f"{node_name}_conditional_edges = {{ {', '.join(edge_mappings)} }}\n{builder_graph}.add_conditional_edges('{node_name}', after_{node_name}, {node_name}_conditional_edges)\n"
 
 
 def true_fn(state):
     return True
 
-def gen_node(node_name, state_type):
-    return f"""
-def {node_name}(state: {state_type}, *, config:Optional[RunnableConfig] = None):
+def gen_node(node_name, state_type, single_node=False):
+    imports = """# GENERATED CODE: node function for {node_name}
+from typing import Dict, TypedDict, Annotated, Optional
+from langgraph.graph import StateGraph, Graph
+from langchain_core.messages.tool import ToolMessage
+from langchain_core.runnables.config import RunnableConfig
+
+""" if single_node else ""
+    
+    return f"""{imports}def {node_name}(state: {state_type}, *, config:Optional[RunnableConfig] = None):
     print(f'NODE: {node_name}')
     return {{ 'nodes_visited': '{node_name}', 'counter': state['counter'] + 1 }}
 """
 
-def process_node(node_name, node_data, found_functions, graph, state_type):
+def process_node(node_name, node_data, found_functions, graph, state_type, single_node=False):
     """Process a single node and generate appropriate code."""
-    if node_name == "START":
+    if node_name in ["START", "END"]:  # Exclude both START and END
         return None
             
     matching_functions = [ff for ff in found_functions if ff.function_name == node_name]
@@ -237,7 +224,7 @@ def process_node(node_name, node_data, found_functions, graph, state_type):
     else:
         if isinstance(graph, dict) and node_data is not None:
             state_type = node_data.get('state', 'default')
-        return gen_node(node_name, state_type)
+        return gen_node(node_name, state_type, single_node)
 
 def gen_node_names(node_names):
     if "," in node_names:
@@ -327,6 +314,7 @@ def add_str_to_list(a=None, b=""):
     return (a if a is not None else []) + ([b] if not isinstance(b, list) else b)
 
 def add_int(a, b):
+    if b == 0: return 0
     return b+1 if a==b else b
 
 class {state_class}(TypedDict):
@@ -366,9 +354,10 @@ import sqlite3"""
 from langgraph.graph import MessageGraph""" 
 
     graph_setup += f"checkpoint_saver = MemorySaver()\n"
-    graph_setup += f"{graph_name} = StateGraph({state_type})\n"
+    builder_graph = f"builder_{graph_name}"
+    graph_setup += f"{builder_graph} = StateGraph({state_type})\n"
     if state_type == "MessageGraph":
-        graph_setup = f"{graph_name} = MessageGraph()\n"
+        graph_setup = f"{builder_graph} = MessageGraph()\n"
 
     for node_name in graph:
         if node_name != "START":
@@ -377,12 +366,12 @@ from langgraph.graph import MessageGraph"""
                 for nn in node_names:
                     if nn not in nodes_added:
                         nodes_added.extend(nn)
-                        graph_setup += f"{graph_name}.add_node('{nn}', {nn})\n"
+                        graph_setup += f"{builder_graph}.add_node('{nn}', {nn})\n"
             elif node_name not in nodes_added:
                 nodes_added.extend(node_name)
-                graph_setup += f"{graph_name}.add_node('{node_name}', {node_name})\n"
+                graph_setup += f"{builder_graph}.add_node('{node_name}', {node_name})\n"
     if start_node != "START":
-        graph_setup += f"\n{graph_name}.set_entry_point('{start_node}')\n\n"
+        graph_setup += f"\n{builder_graph}.set_entry_point('{start_node}')\n\n"
 
     # Generate the code for edges and conditional edges
     node_code = []
@@ -390,7 +379,7 @@ from langgraph.graph import MessageGraph"""
         conditions = mk_conditions(node_name, node_dict)
         if conditions:
             node_code.append(conditions)
-        conditional_edges = mk_conditional_edges(graph_name, node_name, node_dict)
+        conditional_edges = mk_conditional_edges(builder_graph, node_name, node_dict)
         if conditional_edges:
             node_code.append(conditional_edges)
 
@@ -404,7 +393,7 @@ from langgraph.graph import MessageGraph"""
         + graph_setup
         + "\n".join(node_code)
         + "\n\n"
-        + f"{graph_name} = {graph_name}.compile({compile_args})"
+        + f"{graph_name} = {builder_graph}.compile({compile_args})"
     )
 
 def validate_graph(graph_spec: str) -> Dict[str, Any]:

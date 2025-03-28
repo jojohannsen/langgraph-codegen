@@ -1,4 +1,4 @@
-LangGraph CodeGen v0.1.33
+LangGraph CodeGen v0.1.47
 Using graph file: plan_and_execute/plan_and_execute.txt
 
 Welcome to the LangGraph Design REPL!
@@ -11,177 +11,169 @@ Type 'quit' to exit
 
 lgcodegen: 
 
-# GENERATED code, creates compiled graph: plan_and_execute                                                   
-from langgraph.graph import START, END, StateGraph                                                           
-from langgraph.checkpoint.memory import MemorySaver                                                          
-import sqlite3                                                                                               
-                                                                                                             
-checkpoint_saver = MemorySaver()                                                                             
-plan_and_execute = StateGraph(PlanExecute)                                                                   
-plan_and_execute.add_node('plan_step', plan_step)                                                            
-plan_and_execute.add_node('execute_step', execute_step)                                                      
-plan_and_execute.add_node('replan_step', replan_step)                                                        
-plan_and_execute.add_edge(START, 'plan_step')                                                                
-plan_and_execute.add_edge('plan_step', 'execute_step')                                                       
-plan_and_execute.add_edge('execute_step', 'replan_step')                                                     
-def after_replan_step(state: PlanExecute):                                                                   
-    if is_done(state):                                                                                       
-        return 'END'                                                                                         
-    return 'execute_step'                                                                                    
-                                                                                                             
-replan_step_conditional_edges = { 'END': END, 'execute_step': 'execute_step' }                               
-plan_and_execute.add_conditional_edges( 'replan_step', after_replan_step, replan_step_conditional_edges )    
-                                                                                                             
-                                                                                                             
-plan_and_execute = plan_and_execute.compile(checkpointer=checkpoint_saver)                                   
+# GENERATED code, creates compiled graph: plan_and_execute                                                          
+from langgraph.graph import START, END, StateGraph                                                                  
+from langgraph.checkpoint.memory import MemorySaver                                                                 
+import sqlite3                                                                                                      
+                                                                                                                    
+checkpoint_saver = MemorySaver()                                                                                    
+builder_plan_and_execute = StateGraph(PlanExecute)                                                                  
+builder_plan_and_execute.add_node('plan_step', plan_step)                                                           
+builder_plan_and_execute.add_node('execute_step', execute_step)                                                     
+builder_plan_and_execute.add_node('replan_step', replan_step)                                                       
+builder_plan_and_execute.add_edge(START, 'plan_step')                                                               
+builder_plan_and_execute.add_edge('plan_step', 'execute_step')                                                      
+builder_plan_and_execute.add_edge('execute_step', 'replan_step')                                                    
+def after_replan_step(state: PlanExecute):                                                                          
+    if is_done(state):                                                                                              
+        return 'END'                                                                                                
+    return 'execute_step'                                                                                           
+                                                                                                                    
+replan_step_conditional_edges = { 'END': END, 'execute_step': 'execute_step' }                                      
+builder_plan_and_execute.add_conditional_edges('replan_step', after_replan_step, replan_step_conditional_edges)     
+                                                                                                                    
+                                                                                                                    
+plan_and_execute = builder_plan_and_execute.compile(checkpointer=checkpoint_saver)                                  
 
 
 lgcodegen: Saved code to plan_and_execute/plan_and_execute_graph.py
 lgcodegen: 
 
-                                                                                                             
-def END(state: default, *, config:Optional[RunnableConfig] = None):                                          
-    print(f'NODE: END')                                                                                      
-    return { 'nodes_visited': 'END', 'counter': state['counter'] + 1 }                                       
-                                                                                                             
-                                                                                                             
-def execute_step(state: default, *, config:Optional[RunnableConfig] = None):                                 
-    print(f'NODE: execute_step')                                                                             
-    return { 'nodes_visited': 'execute_step', 'counter': state['counter'] + 1 }                              
-                                                                                                             
-                                                                                                             
-def plan_step(state: default, *, config:Optional[RunnableConfig] = None):                                    
-    print(f'NODE: plan_step')                                                                                
-    return { 'nodes_visited': 'plan_step', 'counter': state['counter'] + 1 }                                 
-                                                                                                             
-                                                                                                             
-def replan_step(state: default, *, config:Optional[RunnableConfig] = None):                                  
-    print(f'NODE: replan_step')                                                                              
-    return { 'nodes_visited': 'replan_step', 'counter': state['counter'] + 1 }                               
-                                                                                                             
+def execute_step(state: default, *, config:Optional[RunnableConfig] = None):                                        
+    print(f'NODE: execute_step')                                                                                    
+    return { 'nodes_visited': 'execute_step', 'counter': state['counter'] + 1 }                                     
+                                                                                                                    
+def plan_step(state: default, *, config:Optional[RunnableConfig] = None):                                           
+    print(f'NODE: plan_step')                                                                                       
+    return { 'nodes_visited': 'plan_step', 'counter': state['counter'] + 1 }                                        
+                                                                                                                    
+def replan_step(state: default, *, config:Optional[RunnableConfig] = None):                                         
+    print(f'NODE: replan_step')                                                                                     
+    return { 'nodes_visited': 'replan_step', 'counter': state['counter'] + 1 }                                      
+                                                                                                                    
 
 
 lgcodegen: Saved code to plan_and_execute/plan_and_execute_nodes.py
 lgcodegen: 
 
-# GENERATED CODE -- used for graph simulation mode                                                           
-def is_done(state: PlanExecute) -> bool:                                                                     
-    result = random_one_or_zero()                                                                            
-    print(f'CONDITION: is_done. Result: {result}')                                                           
-    return result                                                                                            
-                                                                                                             
+# GENERATED CODE -- used for graph simulation mode                                                                  
+def is_done(state: PlanExecute) -> bool:                                                                            
+    result = random_one_or_zero()                                                                                   
+    print(f'CONDITION: is_done. Result: {result}')                                                                  
+    return result                                                                                                   
+                                                                                                                    
 
 
 lgcodegen: Saved code to plan_and_execute/plan_and_execute_conditions.py
 lgcodegen: 
 
-                                                                                                             
-# GENERATED CODE: mock graph state                                                                           
-from typing import Annotated, TypedDict                                                                      
-                                                                                                             
-def add_str_to_list(a=None, b=""):                                                                           
-    return (a if a is not None else []) + ([b] if not isinstance(b, list) else b)                            
-                                                                                                             
-class PlanExecute(TypedDict):                                                                                
-    nodes_visited: Annotated[list[str], add_str_to_list]                                                     
-    counter: int                                                                                             
-                                                                                                             
-def initial_state_PlanExecute():                                                                             
-    return { 'nodes_visited': [], 'counter': 0 }                                                             
-                                                                                                             
+                                                                                                                    
+# GENERATED CODE: mock graph state                                                                                  
+from typing import Annotated, TypedDict                                                                             
+                                                                                                                    
+def add_str_to_list(a=None, b=""):                                                                                  
+    return (a if a is not None else []) + ([b] if not isinstance(b, list) else b)                                   
+                                                                                                                    
+def add_int(a, b):                                                                                                  
+    if b == 0: return 0                                                                                             
+    return b+1 if a==b else b                                                                                       
+                                                                                                                    
+class PlanExecute(TypedDict):                                                                                       
+    nodes_visited: Annotated[list[str], add_str_to_list]                                                            
+    counter: Annotated[int, add_int]                                                                                
+                                                                                                                    
+def initial_state_PlanExecute():                                                                                    
+    return { 'nodes_visited': [], 'counter': 0 }                                                                    
+                                                                                                                    
 
 
 lgcodegen: Saved code to plan_and_execute/plan_and_execute_state.py
 lgcodegen: 
 
-from typing import Dict, TypedDict, Annotated, Optional                                                      
-from langgraph.graph import StateGraph, Graph                                                                
-from langchain_core.messages.tool import ToolMessage                                                         
-from langchain_core.runnables.config import RunnableConfig                                                   
-from operator import itemgetter                                                                              
-                                                                                                             
-                                                                                                             
-                                                                                                             
-# GENERATED CODE: mock graph state                                                                           
-from typing import Annotated, TypedDict                                                                      
-                                                                                                             
-def add_str_to_list(a=None, b=""):                                                                           
-    return (a if a is not None else []) + ([b] if not isinstance(b, list) else b)                            
-                                                                                                             
-class PlanExecute(TypedDict):                                                                                
-    nodes_visited: Annotated[list[str], add_str_to_list]                                                     
-    counter: int                                                                                             
-                                                                                                             
-def initial_state_PlanExecute():                                                                             
-    return { 'nodes_visited': [], 'counter': 0 }                                                             
-                                                                                                             
-                                                                                                             
-                                                                                                             
-def END(state: default, *, config:Optional[RunnableConfig] = None):                                          
-    print(f'NODE: END')                                                                                      
-    return { 'nodes_visited': 'END', 'counter': state['counter'] + 1 }                                       
-                                                                                                             
-                                                                                                             
-def execute_step(state: default, *, config:Optional[RunnableConfig] = None):                                 
-    print(f'NODE: execute_step')                                                                             
-    return { 'nodes_visited': 'execute_step', 'counter': state['counter'] + 1 }                              
-                                                                                                             
-                                                                                                             
-def plan_step(state: default, *, config:Optional[RunnableConfig] = None):                                    
-    print(f'NODE: plan_step')                                                                                
-    return { 'nodes_visited': 'plan_step', 'counter': state['counter'] + 1 }                                 
-                                                                                                             
-                                                                                                             
-def replan_step(state: default, *, config:Optional[RunnableConfig] = None):                                  
-    print(f'NODE: replan_step')                                                                              
-    return { 'nodes_visited': 'replan_step', 'counter': state['counter'] + 1 }                               
-                                                                                                             
-                                                                                                             
-# GENERATED CODE -- used for graph simulation mode                                                           
-def is_done(state: PlanExecute) -> bool:                                                                     
-    result = random_one_or_zero()                                                                            
-    print(f'CONDITION: is_done. Result: {result}')                                                           
-    return result                                                                                            
-                                                                                                             
-                                                                                                             
-# GENERATED code, creates compiled graph: plan_and_execute                                                   
-from langgraph.graph import START, END, StateGraph                                                           
-from langgraph.checkpoint.memory import MemorySaver                                                          
-import sqlite3                                                                                               
-                                                                                                             
-checkpoint_saver = MemorySaver()                                                                             
-plan_and_execute = StateGraph(PlanExecute)                                                                   
-plan_and_execute.add_node('plan_step', plan_step)                                                            
-plan_and_execute.add_node('execute_step', execute_step)                                                      
-plan_and_execute.add_node('replan_step', replan_step)                                                        
-plan_and_execute.add_edge(START, 'plan_step')                                                                
-plan_and_execute.add_edge('plan_step', 'execute_step')                                                       
-plan_and_execute.add_edge('execute_step', 'replan_step')                                                     
-def after_replan_step(state: PlanExecute):                                                                   
-    if is_done(state):                                                                                       
-        return 'END'                                                                                         
-    return 'execute_step'                                                                                    
-                                                                                                             
-replan_step_conditional_edges = { 'END': END, 'execute_step': 'execute_step' }                               
-plan_and_execute.add_conditional_edges( 'replan_step', after_replan_step, replan_step_conditional_edges )    
-                                                                                                             
-                                                                                                             
-plan_and_execute = plan_and_execute.compile(checkpointer=checkpoint_saver)                                   
+from typing import Dict, TypedDict, Annotated, Optional                                                             
+from langgraph.graph import StateGraph, Graph                                                                       
+from langchain_core.messages.tool import ToolMessage                                                                
+from langchain_core.runnables.config import RunnableConfig                                                          
+from operator import itemgetter                                                                                     
+                                                                                                                    
+                                                                                                                    
+                                                                                                                    
+# GENERATED CODE: mock graph state                                                                                  
+from typing import Annotated, TypedDict                                                                             
+                                                                                                                    
+def add_str_to_list(a=None, b=""):                                                                                  
+    return (a if a is not None else []) + ([b] if not isinstance(b, list) else b)                                   
+                                                                                                                    
+def add_int(a, b):                                                                                                  
+    if b == 0: return 0                                                                                             
+    return b+1 if a==b else b                                                                                       
+                                                                                                                    
+class PlanExecute(TypedDict):                                                                                       
+    nodes_visited: Annotated[list[str], add_str_to_list]                                                            
+    counter: Annotated[int, add_int]                                                                                
+                                                                                                                    
+def initial_state_PlanExecute():                                                                                    
+    return { 'nodes_visited': [], 'counter': 0 }                                                                    
+                                                                                                                    
+                                                                                                                    
+def execute_step(state: default, *, config:Optional[RunnableConfig] = None):                                        
+    print(f'NODE: execute_step')                                                                                    
+    return { 'nodes_visited': 'execute_step', 'counter': state['counter'] + 1 }                                     
+                                                                                                                    
+def plan_step(state: default, *, config:Optional[RunnableConfig] = None):                                           
+    print(f'NODE: plan_step')                                                                                       
+    return { 'nodes_visited': 'plan_step', 'counter': state['counter'] + 1 }                                        
+                                                                                                                    
+def replan_step(state: default, *, config:Optional[RunnableConfig] = None):                                         
+    print(f'NODE: replan_step')                                                                                     
+    return { 'nodes_visited': 'replan_step', 'counter': state['counter'] + 1 }                                      
+                                                                                                                    
+                                                                                                                    
+# GENERATED CODE -- used for graph simulation mode                                                                  
+def is_done(state: PlanExecute) -> bool:                                                                            
+    result = random_one_or_zero()                                                                                   
+    print(f'CONDITION: is_done. Result: {result}')                                                                  
+    return result                                                                                                   
+                                                                                                                    
+                                                                                                                    
+# GENERATED code, creates compiled graph: plan_and_execute                                                          
+from langgraph.graph import START, END, StateGraph                                                                  
+from langgraph.checkpoint.memory import MemorySaver                                                                 
+import sqlite3                                                                                                      
+                                                                                                                    
+checkpoint_saver = MemorySaver()                                                                                    
+builder_plan_and_execute = StateGraph(PlanExecute)                                                                  
+builder_plan_and_execute.add_node('plan_step', plan_step)                                                           
+builder_plan_and_execute.add_node('execute_step', execute_step)                                                     
+builder_plan_and_execute.add_node('replan_step', replan_step)                                                       
+builder_plan_and_execute.add_edge(START, 'plan_step')                                                               
+builder_plan_and_execute.add_edge('plan_step', 'execute_step')                                                      
+builder_plan_and_execute.add_edge('execute_step', 'replan_step')                                                    
+def after_replan_step(state: PlanExecute):                                                                          
+    if is_done(state):                                                                                              
+        return 'END'                                                                                                
+    return 'execute_step'                                                                                           
+                                                                                                                    
+replan_step_conditional_edges = { 'END': END, 'execute_step': 'execute_step' }                                      
+builder_plan_and_execute.add_conditional_edges('replan_step', after_replan_step, replan_step_conditional_edges)     
+                                                                                                                    
+                                                                                                                    
+plan_and_execute = builder_plan_and_execute.compile(checkpointer=checkpoint_saver)                                  
 
 
 lgcodegen: Saved code to plan_and_execute/plan_and_execute_main.py
 lgcodegen: 
 
-# Plan and Execute Agent                                                                                     
-START(PlanExecute) => plan_step                                                                              
-                                                                                                             
-plan_step => execute_step                                                                                    
-                                                                                                             
-execute_step => replan_step                                                                                  
-                                                                                                             
-replan_step                                                                                                  
-  is_done => END                                                                                             
-  => execute_step                                                                                            
+# Plan and Execute Agent                                                                                            
+START(PlanExecute) => plan_step                                                                                     
+                                                                                                                    
+plan_step => execute_step                                                                                           
+                                                                                                                    
+execute_step => replan_step                                                                                         
+                                                                                                                    
+replan_step                                                                                                         
+  is_done => END                                                                                                    
+  => execute_step                                                                                                   
 
 
 lgcodegen: Saved code to plan_and_execute/plan_and_execute_dsl.txt

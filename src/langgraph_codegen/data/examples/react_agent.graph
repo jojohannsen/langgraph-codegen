@@ -3,5 +3,6 @@ START(State) => call_model
 
 call_model
   should_call_tool => tool_node
+  => END
 
 tool_node => call_model

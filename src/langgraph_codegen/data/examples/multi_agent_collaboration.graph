@@ -14,3 +14,4 @@ chart_node
 tool_node
   back_to_researcher => research_node
   back_to_chart => chart_node
+  => END

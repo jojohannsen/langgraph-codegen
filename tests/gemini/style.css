@@ -1,0 +1,59 @@
+body {
+    font-family: sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0;
+    background-color: #f0f0f0;
+}
+
+h1 {
+    margin-top: 10px;
+    color: #333;
+}
+
+.controls {
+    margin-bottom: 15px;
+    background-color: #fff;
+    padding: 10px 20px;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    gap: 20px; /* Add space between button and status */
+}
+
+#addRectBtn {
+    padding: 8px 15px;
+    font-size: 1em;
+    cursor: pointer;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+}
+
+#addRectBtn:hover {
+    background-color: #45a049;
+}
+
+#status {
+    font-style: italic;
+    color: #555;
+}
+
+#mainCanvas {
+    border: 1px solid #ccc;
+    background-color: #fff;
+    cursor: default; /* Default cursor */
+}
+
+/* Optional: Style for when hovering over a slot */
+/* You might want to add/remove a class via JS instead */
+/* canvas.slot-hover {
+    cursor: crosshair;
+} *//* Add this to your existing style.css */
+canvas.grabbing {
+    cursor: grabbing; /* Show a closed hand when dragging */
+}

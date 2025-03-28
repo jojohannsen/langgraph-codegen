@@ -1,4 +1,4 @@
-LangGraph CodeGen v0.1.33
+LangGraph CodeGen v0.1.47
 Using graph file: supervisor/supervisor.txt
 
 Welcome to the LangGraph Design REPL!
@@ -11,214 +11,202 @@ Type 'quit' to exit
 
 lgcodegen: 
 
-# GENERATED code, creates compiled graph: supervisor                                                         
-from langgraph.graph import START, END, StateGraph                                                           
-from langgraph.checkpoint.memory import MemorySaver                                                          
-import sqlite3                                                                                               
-                                                                                                             
-checkpoint_saver = MemorySaver()                                                                             
-supervisor = StateGraph(AgentState)                                                                          
-supervisor.add_node('supervisor_agent', supervisor_agent)                                                    
-supervisor.add_node('research_node', research_node)                                                          
-supervisor.add_node('code_node', code_node)                                                                  
-supervisor.add_edge(START, 'supervisor_agent')                                                               
-def after_supervisor_agent(state: AgentState):                                                               
-    if next_is_researcher(state):                                                                            
-        return 'research_node'                                                                               
-    elif next_is_coder(state):                                                                               
-        return 'code_node'                                                                                   
-    elif next_is_finish(state):                                                                              
-        return 'END'                                                                                         
-    else:                                                                                                    
-        # destination not found, default to END                                                              
-        return END                                                                                           
-                                                                                                             
-supervisor_agent_conditional_edges = { 'research_node': 'research_node', 'code_node': 'code_node', 'END': END
-supervisor.add_conditional_edges( 'supervisor_agent', after_supervisor_agent, supervisor_agent_conditional_ed
-                                                                                                             
-supervisor.add_edge('research_node', 'supervisor_agent')                                                     
-supervisor.add_edge('code_node', 'supervisor_agent')                                                         
-                                                                                                             
-supervisor = supervisor.compile(checkpointer=checkpoint_saver)                                               
+# GENERATED code, creates compiled graph: supervisor                                                                
+from langgraph.graph import START, END, StateGraph                                                                  
+from langgraph.checkpoint.memory import MemorySaver                                                                 
+import sqlite3                                                                                                      
+                                                                                                                    
+checkpoint_saver = MemorySaver()                                                                                    
+builder_supervisor = StateGraph(AgentState)                                                                         
+builder_supervisor.add_node('supervisor_agent', supervisor_agent)                                                   
+builder_supervisor.add_node('research_node', research_node)                                                         
+builder_supervisor.add_node('code_node', code_node)                                                                 
+builder_supervisor.add_edge(START, 'supervisor_agent')                                                              
+def after_supervisor_agent(state: AgentState):                                                                      
+    if next_is_researcher(state):                                                                                   
+        return 'research_node'                                                                                      
+    elif next_is_coder(state):                                                                                      
+        return 'code_node'                                                                                          
+    elif next_is_finish(state):                                                                                     
+        return 'END'                                                                                                
+    return 'END'                                                                                                    
+                                                                                                                    
+supervisor_agent_conditional_edges = { 'research_node': 'research_node', 'code_node': 'code_node', 'END': END }     
+builder_supervisor.add_conditional_edges('supervisor_agent', after_supervisor_agent, supervisor_agent_conditional_ed
+                                                                                                                    
+builder_supervisor.add_edge('research_node', 'supervisor_agent')                                                    
+builder_supervisor.add_edge('code_node', 'supervisor_agent')                                                        
+                                                                                                                    
+supervisor = builder_supervisor.compile(checkpointer=checkpoint_saver)                                              
 
 
 lgcodegen: Saved code to supervisor/supervisor_graph.py
 lgcodegen: 
 
-                                                                                                             
-def END(state: default, *, config:Optional[RunnableConfig] = None):                                          
-    print(f'NODE: END')                                                                                      
-    return { 'nodes_visited': 'END', 'counter': state['counter'] + 1 }                                       
-                                                                                                             
-                                                                                                             
-def code_node(state: default, *, config:Optional[RunnableConfig] = None):                                    
-    print(f'NODE: code_node')                                                                                
-    return { 'nodes_visited': 'code_node', 'counter': state['counter'] + 1 }                                 
-                                                                                                             
-                                                                                                             
-def research_node(state: default, *, config:Optional[RunnableConfig] = None):                                
-    print(f'NODE: research_node')                                                                            
-    return { 'nodes_visited': 'research_node', 'counter': state['counter'] + 1 }                             
-                                                                                                             
-                                                                                                             
-def supervisor_agent(state: default, *, config:Optional[RunnableConfig] = None):                             
-    print(f'NODE: supervisor_agent')                                                                         
-    return { 'nodes_visited': 'supervisor_agent', 'counter': state['counter'] + 1 }                          
-                                                                                                             
+def code_node(state: default, *, config:Optional[RunnableConfig] = None):                                           
+    print(f'NODE: code_node')                                                                                       
+    return { 'nodes_visited': 'code_node', 'counter': state['counter'] + 1 }                                        
+                                                                                                                    
+def research_node(state: default, *, config:Optional[RunnableConfig] = None):                                       
+    print(f'NODE: research_node')                                                                                   
+    return { 'nodes_visited': 'research_node', 'counter': state['counter'] + 1 }                                    
+                                                                                                                    
+def supervisor_agent(state: default, *, config:Optional[RunnableConfig] = None):                                    
+    print(f'NODE: supervisor_agent')                                                                                
+    return { 'nodes_visited': 'supervisor_agent', 'counter': state['counter'] + 1 }                                 
+                                                                                                                    
 
 
 lgcodegen: Saved code to supervisor/supervisor_nodes.py
 lgcodegen: 
 
-# GENERATED CODE -- used for graph simulation mode                                                           
-def next_is_researcher(state: AgentState) -> bool:                                                           
-    result = random_one_or_zero()                                                                            
-    print(f'CONDITION: next_is_researcher. Result: {result}')                                                
-    return result                                                                                            
-                                                                                                             
-                                                                                                             
-def next_is_coder(state: AgentState) -> bool:                                                                
-    result = random_one_or_zero()                                                                            
-    print(f'CONDITION: next_is_coder. Result: {result}')                                                     
-    return result                                                                                            
-                                                                                                             
-                                                                                                             
-def next_is_finish(state: AgentState) -> bool:                                                               
-    result = random_one_or_zero()                                                                            
-    print(f'CONDITION: next_is_finish. Result: {result}')                                                    
-    return result                                                                                            
-                                                                                                             
+# GENERATED CODE -- used for graph simulation mode                                                                  
+def next_is_researcher(state: AgentState) -> bool:                                                                  
+    result = random_one_or_zero()                                                                                   
+    print(f'CONDITION: next_is_researcher. Result: {result}')                                                       
+    return result                                                                                                   
+                                                                                                                    
+                                                                                                                    
+def next_is_coder(state: AgentState) -> bool:                                                                       
+    result = random_one_or_zero()                                                                                   
+    print(f'CONDITION: next_is_coder. Result: {result}')                                                            
+    return result                                                                                                   
+                                                                                                                    
+                                                                                                                    
+def next_is_finish(state: AgentState) -> bool:                                                                      
+    result = random_one_or_zero()                                                                                   
+    print(f'CONDITION: next_is_finish. Result: {result}')                                                           
+    return result                                                                                                   
+                                                                                                                    
 
 
 lgcodegen: Saved code to supervisor/supervisor_conditions.py
 lgcodegen: 
 
-                                                                                                             
-# GENERATED CODE: mock graph state                                                                           
-from typing import Annotated, TypedDict                                                                      
-                                                                                                             
-def add_str_to_list(a=None, b=""):                                                                           
-    return (a if a is not None else []) + ([b] if not isinstance(b, list) else b)                            
-                                                                                                             
-class AgentState(TypedDict):                                                                                 
-    nodes_visited: Annotated[list[str], add_str_to_list]                                                     
-    counter: int                                                                                             
-                                                                                                             
-def initial_state_AgentState():                                                                              
-    return { 'nodes_visited': [], 'counter': 0 }                                                             
-                                                                                                             
+                                                                                                                    
+# GENERATED CODE: mock graph state                                                                                  
+from typing import Annotated, TypedDict                                                                             
+                                                                                                                    
+def add_str_to_list(a=None, b=""):                                                                                  
+    return (a if a is not None else []) + ([b] if not isinstance(b, list) else b)                                   
+                                                                                                                    
+def add_int(a, b):                                                                                                  
+    if b == 0: return 0                                                                                             
+    return b+1 if a==b else b                                                                                       
+                                                                                                                    
+class AgentState(TypedDict):                                                                                        
+    nodes_visited: Annotated[list[str], add_str_to_list]                                                            
+    counter: Annotated[int, add_int]                                                                                
+                                                                                                                    
+def initial_state_AgentState():                                                                                     
+    return { 'nodes_visited': [], 'counter': 0 }                                                                    
+                                                                                                                    
 
 
 lgcodegen: Saved code to supervisor/supervisor_state.py
 lgcodegen: 
 
-from typing import Dict, TypedDict, Annotated, Optional                                                      
-from langgraph.graph import StateGraph, Graph                                                                
-from langchain_core.messages.tool import ToolMessage                                                         
-from langchain_core.runnables.config import RunnableConfig                                                   
-from operator import itemgetter                                                                              
-                                                                                                             
-                                                                                                             
-                                                                                                             
-# GENERATED CODE: mock graph state                                                                           
-from typing import Annotated, TypedDict                                                                      
-                                                                                                             
-def add_str_to_list(a=None, b=""):                                                                           
-    return (a if a is not None else []) + ([b] if not isinstance(b, list) else b)                            
-                                                                                                             
-class AgentState(TypedDict):                                                                                 
-    nodes_visited: Annotated[list[str], add_str_to_list]                                                     
-    counter: int                                                                                             
-                                                                                                             
-def initial_state_AgentState():                                                                              
-    return { 'nodes_visited': [], 'counter': 0 }                                                             
-                                                                                                             
-                                                                                                             
-                                                                                                             
-def END(state: default, *, config:Optional[RunnableConfig] = None):                                          
-    print(f'NODE: END')                                                                                      
-    return { 'nodes_visited': 'END', 'counter': state['counter'] + 1 }                                       
-                                                                                                             
-                                                                                                             
-def code_node(state: default, *, config:Optional[RunnableConfig] = None):                                    
-    print(f'NODE: code_node')                                                                                
-    return { 'nodes_visited': 'code_node', 'counter': state['counter'] + 1 }                                 
-                                                                                                             
-                                                                                                             
-def research_node(state: default, *, config:Optional[RunnableConfig] = None):                                
-    print(f'NODE: research_node')                                                                            
-    return { 'nodes_visited': 'research_node', 'counter': state['counter'] + 1 }                             
-                                                                                                             
-                                                                                                             
-def supervisor_agent(state: default, *, config:Optional[RunnableConfig] = None):                             
-    print(f'NODE: supervisor_agent')                                                                         
-    return { 'nodes_visited': 'supervisor_agent', 'counter': state['counter'] + 1 }                          
-                                                                                                             
-                                                                                                             
-# GENERATED CODE -- used for graph simulation mode                                                           
-def next_is_researcher(state: AgentState) -> bool:                                                           
-    result = random_one_or_zero()                                                                            
-    print(f'CONDITION: next_is_researcher. Result: {result}')                                                
-    return result                                                                                            
-                                                                                                             
-                                                                                                             
-def next_is_coder(state: AgentState) -> bool:                                                                
-    result = random_one_or_zero()                                                                            
-    print(f'CONDITION: next_is_coder. Result: {result}')                                                     
-    return result                                                                                            
-                                                                                                             
-                                                                                                             
-def next_is_finish(state: AgentState) -> bool:                                                               
-    result = random_one_or_zero()                                                                            
-    print(f'CONDITION: next_is_finish. Result: {result}')                                                    
-    return result                                                                                            
-                                                                                                             
-                                                                                                             
-# GENERATED code, creates compiled graph: supervisor                                                         
-from langgraph.graph import START, END, StateGraph                                                           
-from langgraph.checkpoint.memory import MemorySaver                                                          
-import sqlite3                                                                                               
-                                                                                                             
-checkpoint_saver = MemorySaver()                                                                             
-supervisor = StateGraph(AgentState)                                                                          
-supervisor.add_node('supervisor_agent', supervisor_agent)                                                    
-supervisor.add_node('research_node', research_node)                                                          
-supervisor.add_node('code_node', code_node)                                                                  
-supervisor.add_edge(START, 'supervisor_agent')                                                               
-def after_supervisor_agent(state: AgentState):                                                               
-    if next_is_researcher(state):                                                                            
-        return 'research_node'                                                                               
-    elif next_is_coder(state):                                                                               
-        return 'code_node'                                                                                   
-    elif next_is_finish(state):                                                                              
-        return 'END'                                                                                         
-    else:                                                                                                    
-        # destination not found, default to END                                                              
-        return END                                                                                           
-                                                                                                             
-supervisor_agent_conditional_edges = { 'research_node': 'research_node', 'code_node': 'code_node', 'END': END
-supervisor.add_conditional_edges( 'supervisor_agent', after_supervisor_agent, supervisor_agent_conditional_ed
-                                                                                                             
-supervisor.add_edge('research_node', 'supervisor_agent')                                                     
-supervisor.add_edge('code_node', 'supervisor_agent')                                                         
-                                                                                                             
-supervisor = supervisor.compile(checkpointer=checkpoint_saver)                                               
+from typing import Dict, TypedDict, Annotated, Optional                                                             
+from langgraph.graph import StateGraph, Graph                                                                       
+from langchain_core.messages.tool import ToolMessage                                                                
+from langchain_core.runnables.config import RunnableConfig                                                          
+from operator import itemgetter                                                                                     
+                                                                                                                    
+                                                                                                                    
+                                                                                                                    
+# GENERATED CODE: mock graph state                                                                                  
+from typing import Annotated, TypedDict                                                                             
+                                                                                                                    
+def add_str_to_list(a=None, b=""):                                                                                  
+    return (a if a is not None else []) + ([b] if not isinstance(b, list) else b)                                   
+                                                                                                                    
+def add_int(a, b):                                                                                                  
+    if b == 0: return 0                                                                                             
+    return b+1 if a==b else b                                                                                       
+                                                                                                                    
+class AgentState(TypedDict):                                                                                        
+    nodes_visited: Annotated[list[str], add_str_to_list]                                                            
+    counter: Annotated[int, add_int]                                                                                
+                                                                                                                    
+def initial_state_AgentState():                                                                                     
+    return { 'nodes_visited': [], 'counter': 0 }                                                                    
+                                                                                                                    
+                                                                                                                    
+def code_node(state: default, *, config:Optional[RunnableConfig] = None):                                           
+    print(f'NODE: code_node')                                                                                       
+    return { 'nodes_visited': 'code_node', 'counter': state['counter'] + 1 }                                        
+                                                                                                                    
+def research_node(state: default, *, config:Optional[RunnableConfig] = None):                                       
+    print(f'NODE: research_node')                                                                                   
+    return { 'nodes_visited': 'research_node', 'counter': state['counter'] + 1 }                                    
+                                                                                                                    
+def supervisor_agent(state: default, *, config:Optional[RunnableConfig] = None):                                    
+    print(f'NODE: supervisor_agent')                                                                                
+    return { 'nodes_visited': 'supervisor_agent', 'counter': state['counter'] + 1 }                                 
+                                                                                                                    
+                                                                                                                    
+# GENERATED CODE -- used for graph simulation mode                                                                  
+def next_is_researcher(state: AgentState) -> bool:                                                                  
+    result = random_one_or_zero()                                                                                   
+    print(f'CONDITION: next_is_researcher. Result: {result}')                                                       
+    return result                                                                                                   
+                                                                                                                    
+                                                                                                                    
+def next_is_coder(state: AgentState) -> bool:                                                                       
+    result = random_one_or_zero()                                                                                   
+    print(f'CONDITION: next_is_coder. Result: {result}')                                                            
+    return result                                                                                                   
+                                                                                                                    
+                                                                                                                    
+def next_is_finish(state: AgentState) -> bool:                                                                      
+    result = random_one_or_zero()                                                                                   
+    print(f'CONDITION: next_is_finish. Result: {result}')                                                           
+    return result                                                                                                   
+                                                                                                                    
+                                                                                                                    
+# GENERATED code, creates compiled graph: supervisor                                                                
+from langgraph.graph import START, END, StateGraph                                                                  
+from langgraph.checkpoint.memory import MemorySaver                                                                 
+import sqlite3                                                                                                      
+                                                                                                                    
+checkpoint_saver = MemorySaver()                                                                                    
+builder_supervisor = StateGraph(AgentState)                                                                         
+builder_supervisor.add_node('supervisor_agent', supervisor_agent)                                                   
+builder_supervisor.add_node('research_node', research_node)                                                         
+builder_supervisor.add_node('code_node', code_node)                                                                 
+builder_supervisor.add_edge(START, 'supervisor_agent')                                                              
+def after_supervisor_agent(state: AgentState):                                                                      
+    if next_is_researcher(state):                                                                                   
+        return 'research_node'                                                                                      
+    elif next_is_coder(state):                                                                                      
+        return 'code_node'                                                                                          
+    elif next_is_finish(state):                                                                                     
+        return 'END'                                                                                                
+    return 'END'                                                                                                    
+                                                                                                                    
+supervisor_agent_conditional_edges = { 'research_node': 'research_node', 'code_node': 'code_node', 'END': END }     
+builder_supervisor.add_conditional_edges('supervisor_agent', after_supervisor_agent, supervisor_agent_conditional_ed
+                                                                                                                    
+builder_supervisor.add_edge('research_node', 'supervisor_agent')                                                    
+builder_supervisor.add_edge('code_node', 'supervisor_agent')                                                        
+                                                                                                                    
+supervisor = builder_supervisor.compile(checkpointer=checkpoint_saver)                                              
 
 
 lgcodegen: Saved code to supervisor/supervisor_main.py
 lgcodegen: 
 
-# Supervisor with supporting agents                                                                          
-START(AgentState) => supervisor_agent                                                                        
-                                                                                                             
-supervisor_agent                                                                                             
-  next_is_researcher => research_node                                                                        
-  next_is_coder => code_node                                                                                 
-  next_is_finish => END                                                                                      
-                                                                                                             
-research_node => supervisor_agent                                                                            
-                                                                                                             
-code_node => supervisor_agent                                                                                
+# Supervisor with supporting agents                                                                                 
+START(AgentState) => supervisor_agent                                                                               
+                                                                                                                    
+supervisor_agent                                                                                                    
+  next_is_researcher => research_node                                                                               
+  next_is_coder => code_node                                                                                        
+  next_is_finish => END                                                                                             
+                                                                                                                    
+research_node => supervisor_agent                                                                                   
+                                                                                                                    
+code_node => supervisor_agent                                                                                       
 
 
 lgcodegen: Saved code to supervisor/supervisor_dsl.txt
