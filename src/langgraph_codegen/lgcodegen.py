@@ -7,7 +7,7 @@ from pathlib import Path
 from langgraph_codegen.gen_graph import (
     gen_graph, gen_nodes, gen_state, 
     gen_conditions, validate_graph, get_example_path,
-    parse_graph_spec, process_node
+    parse_graph_spec, process_node, transform_graph_spec
 )
 from colorama import init, Fore, Style
 from rich import print as rprint
@@ -19,7 +19,7 @@ from collections import namedtuple
 from typing_extensions import TypedDict
 
 # DO NOT EDIT, this is updated by runit script
-version="v0.1.48"
+version="v1.0.0"
 
 # Initialize colorama (needed for Windows)
 init()
@@ -447,7 +447,8 @@ from langchain_core.runnables.config import RunnableConfig
         graph_name = Path(args.graph_file).stem
         
         # Validate the graph specification
-        validation_result = validate_graph(graph_spec)
+        transformed_graph_spec = transform_graph_spec(graph_spec)
+        validation_result = validate_graph(transformed_graph_spec)
         if "error" in validation_result:
             print(f"{Fore.RED}Errors in graph specification:{Style.RESET_ALL}\n")
             print(f"{validation_result['error']}\n")
