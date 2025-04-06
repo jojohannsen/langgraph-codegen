@@ -19,7 +19,7 @@ from collections import namedtuple
 from typing_extensions import TypedDict
 
 # DO NOT EDIT, this is updated by runit script
-version="v1.0.0"
+version="v1.0.1"
 
 # Initialize colorama (needed for Windows)
 init()
