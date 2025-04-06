@@ -3,14 +3,17 @@ NODE: process_input
     {'process_input': {'nodes_visited': 'process_input', 'counter': 1}}
 
 NODE: validate_data
-CONDITION: is_valid. Result: False
-CONDITION: is_invalid. Result: True
+CONDITION: is_valid. Result: True
 
     {'validate_data': {'nodes_visited': 'validate_data', 'counter': 2}}
 
-NODE: handle_error
+NODE: transform_data
 
-    {'handle_error': {'nodes_visited': 'handle_error', 'counter': 3}}
+    {'transform_data': {'nodes_visited': 'transform_data', 'counter': 3}}
+
+NODE: store_result
+
+    {'store_result': {'nodes_visited': 'store_result', 'counter': 4}}
 
 DONE STREAMING, final state:
-StateSnapshot(values={'nodes_visited': ['process_input', 'validate_data', 'handle_error'], 'counter': 3}, next=(), config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1efac058-b94c-60d6-8003-5be618c26797'}}, metadata={'source': 'loop', 'writes': {'handle_error': {'nodes_visited': 'handle_error', 'counter': 3}}, 'thread_id': '1', 'step': 3, 'parents': {}}, created_at='2024-11-26T14:48:48.837032+00:00', parent_config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1efac058-b94a-69a2-8002-6c30b2b9437a'}}, tasks=())
+StateSnapshot(values={'nodes_visited': ['process_input', 'validate_data', 'transform_data', 'store_result'], 'counter': 4}, next=(), config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1f012ff5-f4be-6282-8004-be99b0d26ee6'}}, metadata={'source': 'loop', 'writes': {'store_result': {'nodes_visited': 'store_result', 'counter': 4}}, 'step': 4, 'parents': {}, 'thread_id': '1'}, created_at='2025-04-06T15:54:07.325450+00:00', parent_config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1f012ff5-f4ba-6bb4-8003-0605527122dc'}}, tasks=())

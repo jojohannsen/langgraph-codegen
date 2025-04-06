@@ -31,7 +31,7 @@ for arch in "${architectures[@]}"; do
     lgcodegen "$arch" --code --seed 42
     
     # Run the test
-    python "$arch/$arch.py" > "actual_results/$arch.txt"
+    python "$arch/$arch.py" 12345 > "actual_results/$arch.txt"
     
     # Compare results while ignoring the first line
     python compare_test_runs.py "expected_results/$arch.txt" "actual_results/$arch.txt"

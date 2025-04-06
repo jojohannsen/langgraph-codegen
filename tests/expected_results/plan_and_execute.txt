@@ -16,9 +16,18 @@ NODE: execute_step
     {'execute_step': {'nodes_visited': 'execute_step', 'counter': 4}}
 
 NODE: replan_step
-CONDITION: is_done. Result: True
+CONDITION: is_done. Result: False
 
     {'replan_step': {'nodes_visited': 'replan_step', 'counter': 5}}
 
+NODE: execute_step
+
+    {'execute_step': {'nodes_visited': 'execute_step', 'counter': 6}}
+
+NODE: replan_step
+CONDITION: is_done. Result: True
+
+    {'replan_step': {'nodes_visited': 'replan_step', 'counter': 7}}
+
 DONE STREAMING, final state:
-StateSnapshot(values={'nodes_visited': ['plan_step', 'execute_step', 'replan_step', 'execute_step', 'replan_step'], 'counter': 5}, next=(), config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1f00fec8-4065-6fdc-8005-a0eed453dd32'}}, metadata={'source': 'loop', 'writes': {'replan_step': {'nodes_visited': 'replan_step', 'counter': 5}}, 'thread_id': '1', 'step': 5, 'parents': {}}, created_at='2025-04-02T18:01:35.019410+00:00', parent_config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1f00fec8-4062-6e7c-8004-bacf0b1f9163'}}, tasks=())
+StateSnapshot(values={'nodes_visited': ['plan_step', 'execute_step', 'replan_step', 'execute_step', 'replan_step', 'execute_step', 'replan_step'], 'counter': 7}, next=(), config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1f012fe5-1cec-6c42-8007-bcb83764b52e'}}, metadata={'source': 'loop', 'writes': {'replan_step': {'nodes_visited': 'replan_step', 'counter': 7}}, 'step': 7, 'parents': {}, 'thread_id': '1'}, created_at='2025-04-06T15:46:35.198571+00:00', parent_config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1f012fe5-1ceb-682e-8006-e9c3b59a5969'}}, tasks=())

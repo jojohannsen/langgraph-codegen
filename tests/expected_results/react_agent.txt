@@ -1,16 +1,7 @@
 NODE: call_model
-CONDITION: should_call_tool. Result: True
+CONDITION: should_call_tool. Result: False
 
     {'call_model': {'nodes_visited': 'call_model', 'counter': 1}}
 
-NODE: tool_node
-
-    {'tool_node': {'nodes_visited': 'tool_node', 'counter': 2}}
-
-NODE: call_model
-CONDITION: should_call_tool. Result: False
-
-    {'call_model': {'nodes_visited': 'call_model', 'counter': 3}}
-
 DONE STREAMING, final state:
-StateSnapshot(values={'nodes_visited': ['call_model', 'tool_node', 'call_model'], 'counter': 3}, next=(), config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1f00feed-496d-6ee8-8003-1a2a562b0f79'}}, metadata={'source': 'loop', 'writes': {'call_model': {'nodes_visited': 'call_model', 'counter': 3}}, 'thread_id': '1', 'step': 3, 'parents': {}}, created_at='2025-04-02T18:18:09.177567+00:00', parent_config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1f00feed-496c-6584-8002-ce4ac241330b'}}, tasks=())
+StateSnapshot(values={'nodes_visited': ['call_model'], 'counter': 1}, next=(), config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1f012ff8-0ecc-685c-8001-8d9f9c9cea0c'}}, metadata={'source': 'loop', 'writes': {'call_model': {'nodes_visited': 'call_model', 'counter': 1}}, 'step': 1, 'parents': {}, 'thread_id': '1'}, created_at='2025-04-06T15:55:03.744724+00:00', parent_config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1f012ff8-0eca-6c1e-8000-5f8129645f8b'}}, tasks=())

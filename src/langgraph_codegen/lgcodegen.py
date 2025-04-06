@@ -539,6 +539,11 @@ def random_one_or_zero():
 
 if __name__ == "__main__":
     import sys
+    import random
+    # set random seed for reproducible tests, or allow user to set it
+    # if there is an arg, use it, the arg is in sys.argv[1], we need to convert it to an int
+    if len(sys.argv) > 1:
+        random.seed(int(sys.argv[1]))
     
     # Create the graph
     workflow = {graph_name}

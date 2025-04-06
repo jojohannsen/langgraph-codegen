@@ -1,3 +1,5 @@
+from colorama import Fore, Style
+
 try:
     # Try installed package first
     from langgraph_codegen.gen_graph import gen_graph, gen_state, parse_graph_spec, validate_graph
@@ -71,7 +73,7 @@ def test_parse_graph_spec_parallel_conditions():
     graph, start_node = parse_graph_spec(graph_spec)
 
     # Verify parallel edges from start
-    assert graph["start"]["edges"][0] == {
+    assert graph["START"]["edges"][0] == {
         "condition": "true_fn",
         "destination": "node1, node2"
     }

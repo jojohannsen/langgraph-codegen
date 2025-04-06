@@ -36,6 +36,67 @@ def normalize_test_output(test_output):
 
     return '\n'.join(normalized_lines)
 
+import ast
+import json
+
+
+import re
+import ast
+import json
+
+def compare_snapshot_strings(snapshot_str1, snapshot_str2):
+    """
+    Compare two StateSnapshot string representations.
+    
+    Args:
+        snapshot_str1 (str): First StateSnapshot string
+        snapshot_str2 (str): Second StateSnapshot string
+        
+    Returns:
+        bool: True if snapshots are equal (ignoring dict order), False otherwise or on error
+    """
+    try:
+        # Validate input strings
+        if not isinstance(snapshot_str1, str) or not isinstance(snapshot_str2, str):
+            return False
+            
+        # Check if strings match the expected StateSnapshot pattern
+        pattern = r"^StateSnapshot\(.*\)$"
+        if not re.match(pattern, snapshot_str1) or not re.match(pattern, snapshot_str2):
+            return False
+        
+        # Extract the content inside StateSnapshot()
+        def extract_content(snapshot_str):
+            content = re.match(r"StateSnapshot\((.*)\)$", snapshot_str).group(1)
+            
+            # Create a dictionary-like string by wrapping in braces
+            dict_str = "{" + content + "}"
+            
+            # Now manually replace the field assignments to make it valid Python dict syntax
+            # Replace fieldname= with 'fieldname':
+            dict_str = re.sub(r'(\w+)=', r"'\1':", dict_str)
+            
+            # Try to parse with ast.literal_eval
+            try:
+                return ast.literal_eval(dict_str)
+            except (SyntaxError, ValueError) as e:
+                # If we can't parse it, raise an exception to be caught by the outer try block
+                raise ValueError(f"Failed to parse snapshot: {e}")
+        
+        # Convert both snapshots to dictionaries
+        dict1 = extract_content(snapshot_str1)
+        dict2 = extract_content(snapshot_str2)
+        
+        # Convert to JSON with sorted keys to normalize dictionary key order
+        sorted1 = json.dumps(dict1, sort_keys=True)
+        sorted2 = json.dumps(dict2, sort_keys=True)
+        
+        # Compare the normalized JSON strings
+        return sorted1 == sorted2
+        
+    except Exception as e:
+        # Catch any exceptions and return False
+        return False
 
 def compare_files(file1_path, file2_path, context_lines=3):
     # Print comparison files on one line
@@ -58,7 +119,7 @@ def compare_files(file1_path, file2_path, context_lines=3):
             lines2 = content2.split('\n')
             # Compare line by line to find differences
             for i, (line1, line2) in enumerate(zip_longest(lines1, lines2, fillvalue=None)):
-                if line1 != line2:
+                if line1 != line2 and not compare_snapshot_strings(line1, line2):
                     # Print line numbers and differences
                     print(f"\nDifference at line {i + 1}:")
 

@@ -12,11 +12,19 @@ from langgraph_codegen.graph import Graph
 ERROR_MISSING_IMPORTS = "Missing required imports for graph compilation"
 ERROR_START_NODE_NOT_FOUND = "START node not found at beginning of graph specification"
 
+def in_parentheses(s):
+    """Extract text inside parentheses if present, otherwise return the string itself."""
+    if '(' in s and ')' in s:
+        return s[s.index('(') + 1:s.index(')')]
+    else:
+        return None
+
 def transform_graph_spec(graph_spec: str) -> str:
     graph_spec = dedent(graph_spec)
     lines = graph_spec.split("\n")
     transformed_lines = []
-
+    state_class_name = None
+    start_node_name = None
     for line in lines:
         # Remove comments from the line
         # design issue here, we are relying on whitespace at beginning controls how to interpret the line, so have to rstrip only
@@ -24,7 +32,52 @@ def transform_graph_spec(graph_spec: str) -> str:
         
         if not line or line[0] in ["-", "/"]:
             continue
-        if "=>" in line and not line[0].isspace():
+        if ("=>" in line or "->" in line) and state_class_name is None:
+            state_class_name = in_parentheses(line) if "(" in line else line.strip().split()[0]
+            start_node_name = line.split("=>")[1].strip() if "=>" in line else line.split("->")[1].strip()
+            transformed_lines.append(f"START({state_class_name})")
+            transformed_lines.append(f"  => {start_node_name}")
+            continue
+        # if we have a line in this format:
+        # "node_name -> fn_name(node_name2, node_name3, END)"
+        # we need to transform that into:
+        # """{node_name}
+        #   {fn_name}_{fn_name_param} => {fn_name_param}"""
+        # with that second line repeated for each parameter of fn_name
+        
+        # first check if line is in format:  node_name -> fn_name(node_name2, node_name3, END)
+        if "->" in line:
+            node_name, destinations = line.split("->")
+            if "(" in line:
+                # if fn call parameter is {state_class_name}.{field_name}, we need to extract that
+                fn_params = line.split("(")[1].split(")")[0].strip()
+                fn_name = line.split("->")[1].split("(")[0].strip()
+                # this would be exactly 1 parameter, in that format
+                if fn_params.startswith(state_class_name):
+                    iterable_field_name = fn_params.split(".")[1]
+                    transformed_lines.append(f"{node_name}")
+                    transformed_lines.append(f"  true_fn => SEND({iterable_field_name})")
+                    # write the send list as code, it looks like, append this as a :
+                    # "SEND: [ {fn_name}(s) for s in state['{iterable_field_name}'] ]"
+                    transformed_lines.append(f"# SEND: [ {fn_name}(s) for s in state['{iterable_field_name}'] ]")
+                else:
+                    node_name = line.split("->")[0].strip()
+                    fn_name = line.split("->")[1].split("(")[0].strip()
+                    fn_params = line.split("(")[1].split(")")[0].strip()
+                    transformed_lines.append(f"{node_name}")
+                    for fn_param in fn_params.split(","):
+                        transformed_lines.append(f"  {fn_name}_{fn_param.strip()} => {fn_param.strip()}")
+                        # we also need code for that function, we out that as a comment
+                        # "# CONDITION: fn_name_{fn_param} = lambda state: {fn_name}(state) == '{fn_param}'"
+                        transformed_lines.append(f"# CONDITION: {fn_name}_{fn_param.strip()} = lambda state: {fn_name}(state) == '{fn_param.strip()}'")
+            else:
+                node_name = node_name.strip()
+                transformed_lines.append(node_name)
+                # split on , and strip whitespace
+                destinations = [d.strip() for d in destinations.split(",")]
+                for destination in destinations:
+                    transformed_lines.append(f"  true_fn => {destination}")
+        elif "=>" in line and not line[0].isspace():
             parts = [p.strip() for p in line.split("=>")]
             if parts[0]:
                 # parts[0] might be a comma separated list of node names
@@ -67,7 +120,7 @@ def parse_graph_spec(graph_spec):
 
     for line in graph_spec.strip().split("\n"):
         line = line.strip()
-        if not line:
+        if not line or line[0] in ["#", "-", "/"]:
             continue
 
         if "=>" in line:
@@ -499,6 +552,10 @@ def get_example_path(filename):
             filename = filename + '.graph'
         example_path = package_dir / 'data' / 'examples' / filename
         
+        if example_path.exists():
+            return str(example_path)
+        filename = filename.replace('.graph', '.txt')
+        example_path = package_dir / 'data' / 'examples' / filename
         if example_path.exists():
             return str(example_path)
         return None

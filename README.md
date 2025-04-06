@@ -1,7 +1,57 @@
 # langgraph-codegen
+##### Overview
+
+**lgcodegen** allows a langraph specification entirely in terms of class names and function names.  It will generate those if necessary, resulting in a runnable graph.
+
+Here's the graphs from Lance-from-Langchain "Building Effective Agents" video:
+
+```
+# Agent
+MessagesState -> llm_call
+llm_call -> should_continue(environment, END)
+environment -> llm_call
+```
+
+```
+# Evaluator Optimizer
+State -> llm_call_generator
+llm_call_generator -> llm_call_evaluator
+llm_call_evaluator -> route_joke(END, llm_call_generator)
+```
+
+```
+# Orchestrator Worker
+State -> orchestrator
+orchestrator -> llm_call(State.sections)
+llm_call -> synthesizer
+synthesizer -> END
+```
+
+```
+# Parallelization
+State -> call_llm_1, call_llm_2, call_llm_3
+call_llm_1, call_llm_2, call_llm_3 -> aggregator
+aggregator -> END
+```
+
+```
+# Prompt Chaining
+State -> generate_joke
+generate_joke -> check_punchline(improve_joke, END)
+improve_joke -> polish_joke
+polish_joke -> END
+```
+
+These convert into runnable code with:
+```
+lgcodegen graph_spec.txt --code
+```
+
+This command creates a folder "graph_spec" (taken from file name), and writes "graph_spec.py" in the folder.  The py file contains the graph State class, all Node and Condition classes.  
+
 ##### Quick Start
 
-To generate a graph from text:
+To generate a graph from examples:
 
 ```bash
 # View available example graphs, 'plan_and_execute' is one of the examples
