@@ -1,0 +1,9 @@
+State -> llm_call_router
+# use llm to route based on 'input' value in state
+llm_call_router -> route_decistion(story, joke, poem)
+# generate a story based on topic
+story -> END
+# generate a joke based on topic
+joke -> END
+# generate a poem based on topic
+poem -> END

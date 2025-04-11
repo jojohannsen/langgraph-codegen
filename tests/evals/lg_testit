@@ -4,4 +4,5 @@ python mk_state_spec.py jokester.txt
 python mk_state_code.py jokester.txt
 python mk_node_spec.py jokester.txt
 python mk_node_code.py jokester.txt
-lgcodegen jokester.txt --code
+python mk_graph_spec.py jokester.txt
+python mk_graph_code.py jokester.txt

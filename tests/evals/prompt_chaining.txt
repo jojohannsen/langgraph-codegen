@@ -1,0 +1,7 @@
+State -> generate_joke
+# generate a joke based on topic value from State
+generate_joke -> check_punchline(improve_joke, END)
+# generate an improved version of that same joke
+improve_joke -> polish_joke
+# generate a 'polished' version of the improved joke
+polish_joke -> END

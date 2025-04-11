@@ -1,0 +1,9 @@
+MarkdownConsensusState -> get_doc
+# ask human for doc path
+get_doc -> read_doc
+# read document content into State
+read_doc -> ask_for_mods
+# ask human for modifications
+ask_for_mods -> handle_mods(read_doc, process_mods, END)
+# update the document based on requested mods
+process_mods -> read_doc

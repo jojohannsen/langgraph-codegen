@@ -1,0 +1,5 @@
+State -> llm_call_generator
+# generate a joke based on State topic
+llm_call_generator -> llm_call_evaluator
+# generate State funny or not result, route based on this value
+llm_call_evaluator -> route_joke(llm_call_generator, END)

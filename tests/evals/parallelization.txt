@@ -1,0 +1,8 @@
+State -> get_topic
+get_topic -> story, joke, poem
+# generate a story based on topic
+story -> END
+# generate a joke based on topic
+joke -> END
+# generate a poem based on topic
+poem -> END

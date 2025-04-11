@@ -1,0 +1,7 @@
+State -> orchestrator
+# based on State 'input', generate a list of sections
+orchestator -> worker(State.sections)
+# generate content for a section
+worker -> synthesizer
+# generate synthesized response based on the results of all the workers
+synthesizer -> END

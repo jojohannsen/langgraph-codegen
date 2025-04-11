@@ -9,14 +9,69 @@ from agno.tools.file import FileTools
 from agno.models.anthropic import Claude
 from agno.models.openai import OpenAIChat
 
-def get_prompts():
+def get_prompt(prompt_name, template_only=False):
     client = Client()
-    graph_spec = client.pull_prompt("johannes/lgcodegen-graph-spec")
-    state_spec = client.pull_prompt("johannes/lgcodegen-gen_state_spec")
-    state_code = client.pull_prompt("johannes/lgcodegen-gen_state_code")
-    node_spec = client.pull_prompt("johannes/lgcodegen-gen_node_spec")
-    node_code = client.pull_prompt("johannes/lgcodegen-gen_node_code")
-    return graph_spec.messages[0].prompt.template, state_spec.messages[0].prompt, state_code.messages[0].prompt, node_spec.messages[0].prompt, node_code.messages[0].prompt
+    if prompt_name.startswith("hub:"):
+        prompt = client.pull_prompt(prompt_name[4:])
+        if template_only:
+            return prompt.messages[0].prompt.template
+        else:
+            return prompt.messages[0].prompt
+    elif prompt_name.startswith("file:"):
+        with open(prompt_name[5:], "r") as f:
+            content = f.read()
+            if template_only:
+                return content
+            else:
+                return None
+    else:
+        return None
+
+def get_prompts(config):
+    graph_spec = get_prompt(config['prompts']['graph_spec_description'], template_only=True)
+    state_spec = get_prompt(config['prompts']['state_spec_prompt'])
+    state_code = get_prompt(config['prompts']['state_code_prompt'])
+    node_spec = get_prompt(config['prompts']['node_spec_prompt'])
+    node_code = get_prompt(config['prompts']['node_code_prompt'])
+    return graph_spec, state_spec, state_code, node_spec, node_code
+
+def get_config(graph_name):
+    # we look for yaml file first in {graph_name}/{graph_name}.yaml
+    # if not found, we look for {graph_name}.yaml in the current directory, and copy it to {graph_name}/{graph_name}.yaml
+    path_to_yaml = Path(graph_name) / f"{graph_name}.yaml"
+    if not path_to_yaml.exists():
+        path_to_yaml = Path(f"{graph_name}.yaml")
+        if not path_to_yaml.exists():
+            path_to_yaml = Path(graph_name) / f"{graph_name}.yaml"
+            print(f"{Fore.CYAN}Creating: {Fore.BLUE}{path_to_yaml}{Style.RESET_ALL}")
+            # make a default config file, put in all the prompts from get_prompts
+            with open(path_to_yaml, "w") as f:
+                yaml_to_write = '''provider: "anthropic"
+models:
+  google: "gemini-2.5-pro-exp-03-25"
+  openai: "o3-mini-high"
+  anthropic: "claude-3-7-sonnet-latest"
+prompts:
+  graph_spec_description: "hub:johannes/lgcodegen-graph-spec"
+  state_spec_prompt: "hub:johannes/lgcodegen-gen_state_spec"
+  state_code_prompt: "hub:johannes/lgcodegen-gen_state_code"
+  node_spec_prompt: "hub:johannes/lgcodegen-gen_node_spec"
+  node_code_prompt: "hub:johannes/lgcodegen-gen_node_code"'''
+                f.write(yaml_to_write)
+            # copy the graph_spec_description to the graph_spec_description.txt file
+    print(f"{Fore.CYAN}Reading: {Fore.BLUE}{path_to_yaml}{Style.RESET_ALL}")
+    # read it
+    with open(path_to_yaml, "r") as f:
+        config = yaml.safe_load(f)
+        # if that config doesn't have prompts, add the default prompts
+        if 'prompts' not in config:
+            config['prompts'] = {}
+            config['prompts']['graph_spec_description'] = "hub:johannes/lgcodegen-graph-spec"
+            config['prompts']['state_spec_prompt'] = "hub:johannes/lgcodegen-gen_state_spec"
+            config['prompts']['state_code_prompt'] = "hub:johannes/lgcodegen-gen_state_code"
+            config['prompts']['node_spec_prompt'] = "hub:johannes/lgcodegen-gen_node_spec"
+            config['prompts']['node_code_prompt'] = "hub:johannes/lgcodegen-gen_node_code"
+    return config
 
 def read_file_and_get_subdir(file_path):
     """
