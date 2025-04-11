@@ -3,7 +3,7 @@ import sys
 from langchain_core.prompts import ChatPromptTemplate
 from pathlib import Path
 from colorama import init, Fore, Style
-from mk_utils import get_prompts, read_file_and_get_subdir, mk_agent, get_config
+from mk_utils import read_file_and_get_subdir, mk_agent, get_config, get_single_prompt
 
 if __name__ == "__main__":
     # Initialize colorama (needed for Windows)
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     Path(graph_name).mkdir(parents=True, exist_ok=True)
     config = get_config(graph_name)
     print(f"{Fore.GREEN}Graph folder: {Fore.BLUE}{graph_name}{Style.RESET_ALL}")
-    agent = mk_agent(graph_name)
+    agent = mk_agent(graph_name, config)
     # if state_spec.md doesn't exist, exit
     if not (Path(graph_name) / "state_spec.md").exists():
         print(f"{Fore.RED}Error: state_spec.md does not exist, use 'python mk_state_spec.py <graph_spec_path>' first{Style.RESET_ALL}")
@@ -47,7 +47,8 @@ if __name__ == "__main__":
         print(f"{Fore.RED}Error: could not find state class in {py_files}{Style.RESET_ALL}")
         sys.exit(1)
     print(f"{Fore.GREEN}Node spec file: {Fore.BLUE}{node_spec_file}{Style.RESET_ALL}")
-    graph_spec_description, state_spec_prompt, state_code_prompt, node_spec_prompt, node_code_prompt = get_prompts(config)
+    graph_spec_description = get_single_prompt(config, 'graph_spec_description')
+    node_spec_prompt = get_single_prompt(config, 'node_spec')
     prompt = node_spec_prompt.format(graph_spec_description=graph_spec_description, 
                                      graph_name=graph_name,
                                      graph_spec=graph_spec, 

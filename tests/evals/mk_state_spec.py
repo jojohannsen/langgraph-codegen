@@ -1,7 +1,7 @@
 from pathlib import Path
 import sys
 from colorama import init, Fore, Style
-from mk_utils import get_prompts, get_config,read_file_and_get_subdir, mk_agent
+from mk_utils import get_config,read_file_and_get_subdir, mk_agent, get_single_prompt
 
 if __name__ == "__main__":
     # Initialize colorama (needed for Windows)
@@ -17,8 +17,10 @@ if __name__ == "__main__":
     Path(graph_name).mkdir(parents=True, exist_ok=True)
     config = get_config(graph_name)
     print(f"{Fore.GREEN}Graph folder: {Fore.BLUE}{graph_name}{Style.RESET_ALL}")
-    agent = mk_agent(graph_name)
-    graph_spec_description, state_spec_prompt, state_code_prompt, node_spec_prompt, node_code_prompt = get_prompts(config)
+    agent = mk_agent(graph_name, config)
+    # get the state_spec_prompt from the config
+    state_spec_prompt = get_single_prompt(config, 'state_spec')
+    graph_spec_description = get_single_prompt(config, 'graph_spec_description')
     prompt = state_spec_prompt.format(graph_spec_description=graph_spec_description, graph_spec=graph_spec, model_name=agent.model.id)
     result = agent.run(prompt)
     # list all the py files in the subdir

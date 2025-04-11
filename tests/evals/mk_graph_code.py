@@ -13,26 +13,12 @@ from agno.tools.duckduckgo import DuckDuckGoTools
 
 from mk_utils import read_file_and_get_subdir, mk_agent, get_config, get_single_prompt
 
-node_python_example = """
-from langchain_core.runnables.config import RunnableConfig
-
-def node_1(state: MyState, *, config:Optional[RunnableConfig] = None):
-    mk_node_code.py
-    read_field = state.read_field
-    if read_field:
-        write_field = "address"
-        write_value = "123 Athens Street"
-        return { write_field: write_value }
-    else:
-        return {} # must return something
-"""
-
 if __name__ == "__main__":
     # Initialize colorama (needed for Windows)
     init()
     
     if len(sys.argv) < 2:
-        print("Usage: python mk_node_code.py graph_spec_file")
+        print("Usage: python mk_graph_code.py graph_spec_file")
         sys.exit(1)
 
     file_path = sys.argv[1]
@@ -56,15 +42,23 @@ if __name__ == "__main__":
     node_spec_file = Path(graph_name) / "node_spec.md"
     with open(node_spec_file, "r") as file:
         node_spec = file.read()
+    graph_spec_file = Path(graph_name) / "graph_spec.md"
+    with open(graph_spec_file, "r") as file:
+        graph_flow_spec = file.read()
     graph_spec_description = get_single_prompt(config, 'graph_spec_description')
-    node_code_prompt = get_single_prompt(config, 'node_code')
-    prompt = node_code_prompt.format(graph_spec_description=graph_spec_description, 
+    graph_code_prompt = get_single_prompt(config, 'graph_code')
+    prompt = graph_code_prompt.format(graph_spec_description=graph_spec_description, 
                                      graph_name=graph_name,
                                      graph_spec=graph_spec, 
+                                     graph_flow_spec=graph_flow_spec, 
                                      state_spec=state_spec, 
                                      state_code=state_code,
                                      node_spec=node_spec,
-                                     model_name=agent.model.id,
-                                     node_python_example=node_python_example)
+                                     model_name=agent.model.id)
     result = agent.run(prompt)
+    # verify {graph_name}_graph_code.py was created
+    if not (Path(graph_name) / f"graph_code.py").exists():
+        print(f"{Fore.RED}Error: graph_code.py does not exist{Style.RESET_ALL}")
+        sys.exit(1)
+    print(f"{Fore.GREEN}Graph code file: {Fore.BLUE}{Path(graph_name) / f"graph_code.py"}{Style.RESET_ALL}")
 

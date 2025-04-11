@@ -1,8 +1,6 @@
 State -> get_topic
 get_topic -> story, joke, poem
-# generate a story based on topic
-story -> END
-# generate a joke based on topic
-joke -> END
-# generate a poem based on topic
-poem -> END
+# generate a story, joke, and poem based on topic
+story, joke, poem -> aggregator
+# combine the results and end
+aggregator -> END

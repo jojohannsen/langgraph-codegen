@@ -3,3 +3,11 @@ models:
   google: "gemini-2.5-pro-exp-03-25"
   openai: "o3-mini"
   anthropic: "claude-3-7-sonnet-latest"
+prompts:
+  graph_spec_description: "file:prompts/graph-spec.md"
+  state_spec_prompt: "hub:johannes/lgcodegen-gen_state_spec"
+  state_code_prompt: "hub:johannes/lgcodegen-gen_state_code"
+  node_spec_prompt: "hub:johannes/lgcodegen-gen_node_spec"
+  node_code_prompt: "hub:johannes/lgcodegen-gen_node_code"
+  graph_spec_prompt: "hub:johannes/lgcodegen-gen_graph_spec"
+  graph_code_prompt: "hub:johannes/lgcodegen-gen_graph_code"
