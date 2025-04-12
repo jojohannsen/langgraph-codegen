@@ -5,8 +5,10 @@ models:
   anthropic: "claude-3-7-sonnet-latest"
 prompts:
   graph_spec_description: "file:prompts/graph-spec.md"
+  human_input_example: "file:prompts/human-questionary-input.md"
   state_spec_prompt: "hub:johannes/lgcodegen-gen_state_spec"
   state_code_prompt: "hub:johannes/lgcodegen-gen_state_code"
+  state_code_example: "file:prompts/state-code-example.md"
   node_spec_prompt: "hub:johannes/lgcodegen-gen_node_spec"
   node_code_prompt: "hub:johannes/lgcodegen-gen_node_code"
   graph_spec_prompt: "hub:johannes/lgcodegen-gen_graph_spec"

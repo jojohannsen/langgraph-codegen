@@ -30,7 +30,12 @@ if __name__ == "__main__":
         state_spec = file.read()
     graph_spec_description = get_single_prompt(config, 'graph_spec_description')
     state_code_prompt = get_single_prompt(config, 'state_code')
-    prompt = state_code_prompt.format(graph_spec_description=graph_spec_description, graph_spec=graph_spec, state_spec=state_spec, model_name=agent.model.id)
+    state_code_example = get_single_prompt(config, 'state_code_example')
+    prompt = state_code_prompt.format(graph_spec_description=graph_spec_description, 
+                                      graph_spec=graph_spec, 
+                                      state_spec=state_spec, 
+                                      state_code_example=state_code_example,
+                                      model_name=agent.model.id)
     result = agent.run(prompt)
     # verify state_code.py exists
     if not (Path(graph_name) / "state_code.py").exists():

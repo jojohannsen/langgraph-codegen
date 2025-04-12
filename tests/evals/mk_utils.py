@@ -8,7 +8,10 @@ from agno.agent import Agent
 from agno.tools.file import FileTools
 from agno.models.anthropic import Claude
 from agno.models.openai import OpenAIChat
+from agno.models.google import Gemini
 from langchain.prompts import PromptTemplate
+
+
 def get_prompt(prompt_name, template_only=False):
     client = Client()
     if prompt_name.startswith("hub:"):
@@ -48,6 +51,7 @@ def get_single_prompt(config, prompt_type):
     """
     prompt_mapping = {
         'graph_spec_description': ('graph_spec_description', True),
+        'human_input_example': ('human_input_example', True),
         'state_spec': ('state_spec_prompt', False),
         'state_code': ('state_code_prompt', False),
         'node_spec': ('node_spec_prompt', False),
@@ -90,6 +94,7 @@ def get_config(graph_name):
         if 'prompts' not in config:
             config['prompts'] = {}
             config['prompts']['graph_spec_description'] = "hub:johannes/lgcodegen-graph-spec"
+            config['prompts']['human_input_example'] = "hub:johannes/lgcodegen-questionary_human_input"
             config['prompts']['state_spec_prompt'] = "hub:johannes/lgcodegen-gen_state_spec"
             config['prompts']['state_code_prompt'] = "hub:johannes/lgcodegen-gen_state_code"
             config['prompts']['node_spec_prompt'] = "hub:johannes/lgcodegen-gen_node_spec"
@@ -136,6 +141,11 @@ def mk_agent(working_dir, config):
     elif config['provider'] == "openai":
         agent = Agent(
             model=OpenAIChat(id=model_name),
+            tools=[FileTools(Path(working_dir))]
+        )
+    elif config['provider'] == "google":
+        agent = Agent(
+            model=Gemini(id=model_name),
             tools=[FileTools(Path(working_dir))]
         )
     return agent

@@ -57,6 +57,7 @@ if __name__ == "__main__":
     with open(node_spec_file, "r") as file:
         node_spec = file.read()
     graph_spec_description = get_single_prompt(config, 'graph_spec_description')
+    human_input_example = get_single_prompt(config, 'human_input_example')
     node_code_prompt = get_single_prompt(config, 'node_code')
     prompt = node_code_prompt.format(graph_spec_description=graph_spec_description, 
                                      graph_name=graph_name,
@@ -65,6 +66,7 @@ if __name__ == "__main__":
                                      state_code=state_code,
                                      node_spec=node_spec,
                                      model_name=agent.model.id,
+                                     human_input_example=human_input_example,
                                      node_python_example=node_python_example)
     result = agent.run(prompt)
 
