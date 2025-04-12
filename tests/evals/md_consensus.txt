@@ -5,5 +5,9 @@ get_doc -> read_doc
 read_doc -> ask_for_mods
 # ask human for modifications
 ask_for_mods -> handle_mods(read_doc, process_mods, END)
-# update the document based on requested mods
-process_mods -> read_doc
+# update the document based on requested mods, save in a 'modified' content State field
+process_mods -> accept_mods
+# check if these mods are acceptable, if so 
+accept_mods -> mods_ok(read_doc, save_mods)
+# move the modified content into main content 
+save_mods -> read_doc
