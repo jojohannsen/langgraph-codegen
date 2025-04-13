@@ -51,7 +51,6 @@ jokester = builder_jokester.compile(checkpointer=checkpoint_saver)
 ```
 
 
-
 ##### Graph 2: parallel execution
 
 ```
@@ -66,7 +65,8 @@ aggregator -> END
 Things demonstrated in this graph:
 
 1. Parallel execution, when the right side of the "->" is a comma separated list, all three of these are a destination.  They all execute in parallel.
-1. Multiple nodes before the "->" means these nodes independently and unconditionally going to the same destination node,
+2. Multiple nodes before the "->" means these nodes independently and unconditionally going to the same destination node,
+
 
 ##### Graph Builder code for Graph 2
 
@@ -91,7 +91,44 @@ builder_parallelization.add_edge('poem', END)
 parallelization = builder_parallelization.compile(checkpointer=checkpoint_saver)
 ```
 
+#### Graph 3: routing functions
 
+When a graph has a conditional edge it is respresented in the graph like this:
+```
+MyState -> first_node
+first_node -> routing_function(node_x, node_y)
+node_x, node_y -> END
+```
+
+If the route might end graph execution, it would look like this:
+```
+some_node -> route_fn(node_1, END)
+```
+When the RHS has a format like "name(params)", this indicates a Routing Function.  It is NOT a Node Function,
+and there cannot be  Node Function with that same name.  
+
+END is a special keyword denoting we END graph execution.
+
+<EXAMPLE_GRAPH>
+MyState -> first_node
+first_node -> routing_fn(node_x, node_y)
+node_x, node_y -> END
+</EXAMPLE_GRAPH>
+
+With the above graph, there are 3 node:  first_node, node_x, node_y
+And there is 1 routing function:   routing_fn
+
+Here's an example routing function:
+```python
+def route_decision(state: State):
+    # Return the node name you want to visit next
+    if state["decision"] == "story":
+        return "llm_call_1"
+    elif state["decision"] == "joke":
+        return "llm_call_2"
+    elif state["decision"] == "poem":
+        return "llm_call_3"
+```
 
 ---
 
