@@ -13,19 +13,7 @@ from agno.tools.duckduckgo import DuckDuckGoTools
 
 from mk_utils import read_file_and_get_subdir, mk_agent, get_config, get_single_prompt
 
-node_python_example = """
-from langchain_core.runnables.config import RunnableConfig
 
-def node_1(state: MyState, *, config:Optional[RunnableConfig] = None):
-    mk_node_code.py
-    read_field = state.read_field
-    if read_field:
-        write_field = "address"
-        write_value = "123 Athens Street"
-        return { write_field: write_value }
-    else:
-        return {} # must return something
-"""
 
 if __name__ == "__main__":
     # Initialize colorama (needed for Windows)
@@ -59,6 +47,7 @@ if __name__ == "__main__":
     graph_spec_description = get_single_prompt(config, 'graph_spec_description')
     human_input_example = get_single_prompt(config, 'human_input_example')
     node_code_prompt = get_single_prompt(config, 'node_code')
+    node_code_example = get_single_prompt(config, 'node_code_example')
     prompt = node_code_prompt.format(graph_spec_description=graph_spec_description, 
                                      graph_name=graph_name,
                                      graph_spec=graph_spec, 
@@ -67,6 +56,6 @@ if __name__ == "__main__":
                                      node_spec=node_spec,
                                      model_name=agent.model.id,
                                      human_input_example=human_input_example,
-                                     node_python_example=node_python_example)
+                                     node_code_example=node_code_example)
     result = agent.run(prompt)
 

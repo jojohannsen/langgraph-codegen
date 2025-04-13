@@ -52,6 +52,7 @@ def get_single_prompt(config, prompt_type):
     prompt_mapping = {
         'graph_spec_description': ('graph_spec_description', True),
         'human_input_example': ('human_input_example', True),
+        'node_code_example': ('node_code_example', True),
         'state_spec': ('state_spec_prompt', False),
         'state_code': ('state_code_prompt', False),
         'node_spec': ('node_spec_prompt', False),
@@ -95,6 +96,7 @@ def get_config(graph_name):
             config['prompts'] = {}
             config['prompts']['graph_spec_description'] = "hub:johannes/lgcodegen-graph-spec"
             config['prompts']['human_input_example'] = "hub:johannes/lgcodegen-questionary_human_input"
+            config['prompts']['node_code_example'] = "hub:johannes/lgcodegen-node_code_example"
             config['prompts']['state_spec_prompt'] = "hub:johannes/lgcodegen-gen_state_spec"
             config['prompts']['state_code_prompt'] = "hub:johannes/lgcodegen-gen_state_code"
             config['prompts']['node_spec_prompt'] = "hub:johannes/lgcodegen-gen_node_spec"

@@ -6,6 +6,7 @@ models:
 prompts:
   graph_spec_description: "file:prompts/graph-spec.md"
   human_input_example: "file:prompts/human-questionary-input.md"
+  node_code_example: "file:prompts/node-code-example.md"
   state_spec_prompt: "hub:johannes/lgcodegen-gen_state_spec"
   state_code_prompt: "hub:johannes/lgcodegen-gen_state_code"
   state_code_example: "file:prompts/state-code-example.md"
