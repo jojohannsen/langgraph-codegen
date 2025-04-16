@@ -1,3 +1,4 @@
+# tells jokes, then asks if it should tell another
 JokesterState -> get_joke_topic
 # first we ask for topic
 get_joke_topic -> tell_joke

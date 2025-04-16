@@ -1,3 +1,4 @@
+# Topic is provided when graph is invoked
 State -> llm_call_generator
 # generate a joke based on State topic
 llm_call_generator -> llm_call_evaluator

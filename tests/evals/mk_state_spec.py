@@ -1,7 +1,7 @@
 from pathlib import Path
 import sys
 from colorama import init, Fore, Style
-from mk_utils import get_config,read_file_and_get_subdir, mk_agent, get_single_prompt
+from mk_utils import get_config,read_file_and_get_subdir, mk_agent, get_single_prompt, parse_graph, validate_graph
 
 if __name__ == "__main__":
     # Initialize colorama (needed for Windows)
@@ -13,6 +13,9 @@ if __name__ == "__main__":
 
     file_path = sys.argv[1]
     graph_name, graph_spec = read_file_and_get_subdir(file_path)
+    parsed_graph = parse_graph(graph_spec)
+    validated_graph = validate_graph(parsed_graph)
+    print(validated_graph)
     # create the working_dir if it does not exist
     Path(graph_name).mkdir(parents=True, exist_ok=True)
     config = get_config(graph_name)

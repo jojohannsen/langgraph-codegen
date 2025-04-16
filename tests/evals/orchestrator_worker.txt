@@ -1,6 +1,7 @@
 State -> orchestrator
-# based on State 'input', generate a list of sections
-orchestator -> worker(State.sections)
+# ask human for 'input', generate a list of report sections to be used for a report on that nput
+# generate no more than 4 sections, we store them in a list in state
+orchestrator -> worker(State.sections)
 # generate content for a section
 worker -> synthesizer
 # generate synthesized response based on the results of all the workers

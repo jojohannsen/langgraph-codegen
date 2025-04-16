@@ -90,8 +90,49 @@ builder_parallelization.add_edge('poem', END)
 
 parallelization = builder_parallelization.compile(checkpointer=checkpoint_saver)
 ```
+#### Graph 3: Worker Nodes
 
-#### Graph 3: routing functions
+When the RHS of a graph line refers to the State class and a field in that State class,
+this defines a Worker Node.
+```
+MyState -> first_node
+# first node generates a few ideas about natural places to visit
+first_node -> worker_node(MyState.ideas)
+# the worker node generates a short phrase representing that place
+worker_node -> evaluator
+# the evaluator generates the best idea from those ideas based on how fun a place it is to see
+evaluator -> END
+```
+
+In this example, "MyState" has a list field called "ideas":
+```python
+class MyState(BaseModel):
+    ideas: list[str] = Field(default=[], description="List of ideas about natural places to visit")
+    processed_ideas: Annotated[list[str], operator.add]
+```
+
+Whenever there are workers, the processed results of those workers go into the "processed_<field>" of the State.  The worker only updates a single entry, the 'operator.add' adds it to the list.
+
+NOTE: the "processed_<field>" data type MUST follow this format for data type:  Annotated[<list type of not-processed field>, operator.add]
+
+```python
+# here data type is 'str', this is the data type in the "list[<data type>]"
+# NOTE, the field_value is a value from a List field in the State.  In this case, it's an 'idea' entry 
+# from the 'ideas' state field.
+def worker(field_value: str, *, config: Optional[RunnableConfig] = None) -> Dict[str, Any]:
+    # does some work, in the above example, it is generating a phrase based on field value
+    result = ...
+    # return update to processed_ideas
+    return { "processed_ideas": [result] }
+```
+
+While the Worker Function is similar to State in that it returns updates to State, it's first parameter
+is a value from a List field stored in State.
+    
+NOTE: the Worker Function DOES NOT take State for a Parameter.
+NOTE: the Worker Function DOES take an entry from a State List as a parameter.
+
+#### Graph 4: Routing Functions
 
 When a graph has a conditional edge it is respresented in the graph like this:
 ```
