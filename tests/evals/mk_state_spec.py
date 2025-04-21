@@ -1,7 +1,7 @@
 from pathlib import Path
 import sys
 from colorama import init, Fore, Style
-from mk_utils import get_config,read_file_and_get_subdir, mk_agent, get_single_prompt, parse_graph, validate_graph
+from mk_utils import get_config,read_file_and_get_subdir, mk_agent, get_single_prompt, parse_graph, validate_graph, OpenRouterAgent
 
 if __name__ == "__main__":
     # Initialize colorama (needed for Windows)
@@ -24,11 +24,29 @@ if __name__ == "__main__":
     # get the state_spec_prompt from the config
     state_spec_prompt = get_single_prompt(config, 'state_spec')
     graph_spec_description = get_single_prompt(config, 'graph_spec_description')
-    prompt = state_spec_prompt.format(graph_spec_description=graph_spec_description, graph_spec=graph_spec, model_name=agent.model.id)
+    prompt = state_spec_prompt.format(
+        graph_spec_description=graph_spec_description,
+        graph_spec=graph_spec,
+        model_name=agent.model.id
+    )
+    print("STATE_SPEC_PROMPT: ", prompt)
     result = agent.run(prompt)
-    # list all the py files in the subdir
-    py_files = [f for f in Path(graph_name).glob("*.py") if f.name != "__init__.py"]
-    print(f"{Fore.GREEN}Python files: {Fore.BLUE}{py_files}{Style.RESET_ALL}")
+    print("RESULT: ", result)
+    state_spec_file = f"{graph_name}/state-spec.md"
+    # if the agent is an OpenRouterAgent, we need to write the response to the graph_name/state_spec.md file
+    if isinstance(agent, OpenRouterAgent):
+        with open(state_spec_file, "w") as f:
+            f.write(result.choices[0].message.content)
+    else:
+        pass # the Agno agent writes the response to the correct file
+    # verify that the state_spec.md file exists
+    if not Path(state_spec_file).exists():
+        print(f"{Fore.RED}State spec file does not exist{Style.RESET_ALL}")
+        sys.exit(1)
+    # verify that the state_spec.md file is not empty
+    if Path(state_spec_file).stat().st_size == 0:
+        print(f"{Fore.RED}State spec file is empty{Style.RESET_ALL}")
+        sys.exit(1)
 
 
 

@@ -3,7 +3,7 @@ import sys
 from langchain_core.prompts import ChatPromptTemplate
 from pathlib import Path
 from colorama import init, Fore, Style
-from mk_utils import read_file_and_get_subdir, mk_agent, get_config, get_single_prompt
+from mk_utils import read_file_and_get_subdir, mk_agent, get_config, get_single_prompt, OpenRouterAgent, extract_python_code
 
 if __name__ == "__main__":
     # Initialize colorama (needed for Windows)
@@ -21,14 +21,13 @@ if __name__ == "__main__":
     print(f"{Fore.GREEN}Graph folder: {Fore.BLUE}{graph_name}{Style.RESET_ALL}")
     agent = mk_agent(graph_name, config)
     # if state_spec.md doesn't exist, exit
-    if not (Path(graph_name) / "state_spec.md").exists():
-        print(f"{Fore.RED}Error: state_spec.md does not exist, use 'python mk_state_spec.py <graph_spec_path>' first{Style.RESET_ALL}")
+    state_spec_file = Path(graph_name) / "state-spec.md"
+    if not state_spec_file.exists():
+        print(f"{Fore.RED}Error: state-spec.md does not exist, use 'python mk_state_spec.py <graph_spec_path>' first{Style.RESET_ALL}")
         sys.exit(1)
-    state_spec_file = Path(graph_name) / "state_spec.md"
-    print(f"{Fore.GREEN}State spec file: {Fore.BLUE}{state_spec_file}{Style.RESET_ALL}")
     with open(state_spec_file, "r") as file:
         state_spec = file.read()
-    node_spec_file = Path(graph_name) / f"node_spec.md"
+    node_spec_file = Path(graph_name) / f"node-spec.md"
     # if node_spec.md exists, ask if we should overwrite it, use questionary to ask
     if node_spec_file.exists():
         print(f"{Fore.GREEN}Node spec file exists: {Fore.BLUE}{node_spec_file}{Style.RESET_ALL}")
@@ -44,8 +43,9 @@ if __name__ == "__main__":
                 state_code = content
                 break
     if not state_code:
-        print(f"{Fore.RED}Error: could not find state class in {py_files}{Style.RESET_ALL}")
-        sys.exit(1)
+        state_code = "State class has not yet been created."
+#        print(f"{Fore.RED}Error: could not find state class in {py_files}{Style.RESET_ALL}")
+#       sys.exit(1)
     print(f"{Fore.GREEN}Node spec file: {Fore.BLUE}{node_spec_file}{Style.RESET_ALL}")
     graph_spec_description = get_single_prompt(config, 'graph_spec_description')
     node_spec_prompt = get_single_prompt(config, 'node_spec')
@@ -56,8 +56,16 @@ if __name__ == "__main__":
                                      state_code=state_code,
                                      model_name=agent.model.id)
     result = agent.run(prompt)
-    # verify node_spec.md exists
+    if isinstance(agent, OpenRouterAgent):
+        with open(node_spec_file, "w") as f:
+            f.write(result.choices[0].message.content)
+    else:
+        pass # the Agno agent writes the response to the correct file
+    # verify node-spec.md exists and is not empty
     if not node_spec_file.exists():
-        print(f"{Fore.RED}Error: node_spec.md does not exist{Style.RESET_ALL}")
+        print(f"{Fore.RED}Error: node-spec.md does not exist{Style.RESET_ALL}")
+        sys.exit(1)
+    if node_spec_file.stat().st_size == 0:
+        print(f"{Fore.RED}Error: node-spec.md is empty{Style.RESET_ALL}")
         sys.exit(1)
     print(f"{Fore.GREEN}Successfully generated: {Fore.BLUE}{node_spec_file}{Style.RESET_ALL}")

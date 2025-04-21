@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import yaml
 from colorama import init, Fore, Style
 from langsmith import Client
@@ -12,6 +13,7 @@ from agno.models.google import Gemini
 from langchain.prompts import PromptTemplate
 from dataclasses import dataclass
 from typing import List, Set, Optional, Tuple
+from langchain_openai import ChatOpenAI
 
 
 def get_prompt(prompt_name, template_only=False):
@@ -68,6 +70,19 @@ def get_single_prompt(config, prompt_type):
         
     config_key, template_only = prompt_mapping[prompt_type]
     return get_prompt(config['prompts'][config_key], template_only=template_only)
+
+def get_file(graph_name, area, file_type):
+    extension = "md" if file_type == "spec" else "py"
+    delimiter = "-" if file_type == "spec" else "_"
+    file_path = Path(graph_name) / f"{area}{delimiter}{file_type}.{extension}"
+    if not file_path.exists():
+        print(f"{Fore.RED}Error: {area}{delimiter}{file_type}.{extension} does not exist{Style.RESET_ALL}")
+        sys.exit(1)
+    # return contents of file
+    with open(file_path, "r") as f:
+        return f.read()
+    # if file is not found, return None
+    return None
 
 def get_config(graph_name):
     # we look for yaml file first in {graph_name}/{graph_name}.yaml
@@ -136,9 +151,47 @@ def read_file_and_get_subdir(file_path):
         print(f"Error reading the file: {e}")
         sys.exit(1)
 
+from openai import OpenAI
+from types import SimpleNamespace
+class OpenRouterAgent:
+    def __init__(self, model_name, api_key, instructions=None):
+        self.client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
+        self.model_name = model_name
+        self.model = SimpleNamespace(id=model_name)
+        self.instructions = instructions
+    def run(self, prompt):
+        return self.client.chat.completions.create(
+            model=self.model_name, 
+            messages=[
+                #{"role": "system", "content": self.instructions} if self.instructions else "You are a helpful developer, writing very clear and concise code and specifications.",
+                {"role": "user", 
+                 "content": prompt}
+            ]
+        )
+
+
+def extract_python_code(text):
+    """
+    Extract Python code from text that contains code blocks.
+    
+    Args:
+        text (str): Text containing Python code blocks marked with ```python and ```
+        
+    Returns:
+        str: The extracted Python code without the markdown formatting
+    """
+    # Pattern to match Python code blocks
+    pattern = r"```python\n(.*?)```"
+    
+    # Find all matches using regex with DOTALL flag to match across newlines
+    matches = re.findall(pattern, text, re.DOTALL)
+    
+    # Return the first match if found, otherwise empty string
+    return matches[0] if matches else ""
+
 def mk_agent(working_dir, config):
     model_name = config['models'][config['provider']]
-    print(f"{Fore.CYAN}Agent Model: {Fore.BLUE}{model_name}{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}Model: {Fore.BLUE}{model_name}{Style.RESET_ALL}")
     agent = None
     if config['provider'] == "anthropic":
         agent = Agent(model=Claude(id=model_name), tools=[FileTools(Path(working_dir))])
@@ -152,9 +205,17 @@ def mk_agent(working_dir, config):
             model=Gemini(id=model_name),
             tools=[FileTools(Path(working_dir))]
         )
+    elif config['provider'] == 'openrouter':
+        agent = OpenRouterAgent(model_name, os.getenv('OPENROUTER_API_KEY'))
     return agent
 
 
+
+# Create the LangGraph agent
+def call_model(state):
+    messages = state["messages"]
+    response = model_with_tools.invoke(messages)
+    return {"messages": [response]}
 # solveit langgraph_DSL notebook
 def unit_generator(graph):
     lines = graph.split("\n")
@@ -241,10 +302,10 @@ class StartGraphTransition:
     def get_dest_nodes(self) -> List[str]:
         return [self.start_node]
     
-    def get_worker_nodes(self) -> List[str]:
+    def get_worker_nodes(self) -> List[tuple]:
         return []
     
-    def get_router_functions(self) -> List[str]:
+    def get_router_functions(self) -> List[tuple]:
         return []
 
 @dataclass
@@ -259,10 +320,10 @@ class SingleNodeTransition:
     def get_dest_nodes(self) -> List[str]:
         return [self.to_node_name]
     
-    def get_worker_nodes(self) -> List[str]:
+    def get_worker_nodes(self) -> List[tuple]:
         return []
     
-    def get_router_functions(self) -> List[str]:
+    def get_router_functions(self) -> List[tuple]:
         return []
 
 @dataclass
@@ -277,10 +338,10 @@ class MultiSourceTransition:
     def get_dest_nodes(self) -> List[str]:
         return [self.to_node_name]
     
-    def get_worker_nodes(self) -> List[str]:
+    def get_worker_nodes(self) -> List[tuple]:
         return []
     
-    def get_router_functions(self) -> List[str]:
+    def get_router_functions(self) -> List[tuple]:
         return []
 
 @dataclass
@@ -295,10 +356,10 @@ class MultiTargetTransition:
     def get_dest_nodes(self) -> List[str]:
         return self.to_nodes
     
-    def get_worker_nodes(self) -> List[str]:
+    def get_worker_nodes(self) -> List[tuple]:
         return []
     
-    def get_router_functions(self) -> List[str]:
+    def get_router_functions(self) -> List[tuple]:
         return []
 
 @dataclass
@@ -314,11 +375,11 @@ class RoutingTransition:
     def get_dest_nodes(self) -> List[str]:
         return self.to_nodes
     
-    def get_worker_nodes(self) -> List[str]:
+    def get_worker_nodes(self) -> List[tuple]:
         return []
     
-    def get_router_functions(self) -> List[str]:
-        return [self.to_routing_function]
+    def get_router_functions(self) -> List[tuple]:
+        return [(self.to_routing_function, tuple(self.to_nodes))]
 
 @dataclass
 class WorkerTransition:
@@ -334,10 +395,10 @@ class WorkerTransition:
     def get_dest_nodes(self) -> List[str]:
         return [self.to_worker]
     
-    def get_worker_nodes(self) -> List[str]:
-        return [self.to_worker]
+    def get_worker_nodes(self) -> List[tuple]:
+        return [(self.to_worker, self.state_class_name, self.field_name)]
     
-    def get_router_functions(self) -> List[str]:
+    def get_router_functions(self) -> List[tuple]:
         return []
 
 def parse_transition(line, is_first_line=False):
@@ -457,7 +518,7 @@ class GraphValidationResult:
     source_nodes: Set[str] = None
     dest_nodes: Set[str] = None
     worker_nodes: Set[str] = None
-    router_functions: Set[str] = None
+    router_functions: Set[tuple] = None
     validation_messages: List[str] = None
     orphan_source_nodes: Set[str] = None
     orphan_dest_nodes: Set[str] = None
@@ -492,11 +553,11 @@ Graph State:
     start_field: {self.start_field}
 Nodes:
     start_node: {self.start_node}
-    source_nodes: {self.source_nodes}
-    dest_nodes: {self.dest_nodes}
-    worker_nodes: {self.worker_nodes}
+    source_nodes: {sorted(self.source_nodes)}
+    dest_nodes: {sorted(self.dest_nodes)}
+    worker_nodes: {sorted(self.worker_nodes)}
 Conditional Edges:
-    router_functions: {self.router_functions}
+    router_functions: {sorted(self.router_functions)}
 """
 
 def validate_graph(transitions):

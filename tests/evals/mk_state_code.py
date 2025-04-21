@@ -2,7 +2,7 @@ import os
 import sys
 from pathlib import Path
 from colorama import init, Fore, Style
-from mk_utils import read_file_and_get_subdir, mk_agent, get_config, get_single_prompt
+from mk_utils import read_file_and_get_subdir, mk_agent, get_config, get_single_prompt, OpenRouterAgent, extract_python_code
 
 
 if __name__ == "__main__":
@@ -20,11 +20,10 @@ if __name__ == "__main__":
     config = get_config(graph_name)
     print(f"{Fore.GREEN}Graph folder: {Fore.BLUE}{graph_name}{Style.RESET_ALL}")
     agent = mk_agent(graph_name, config)
-    # if state_spec.md doesn't exist, exit
-    if not (Path(graph_name) / "state_spec.md").exists():
-        print(f"{Fore.RED}Error: state_spec.md does not exist, use 'python mk_state_spec.py <graph_spec_path>' first{Style.RESET_ALL}")
+    state_spec_file = Path(graph_name) / "state-spec.md"
+    if not state_spec_file.exists():
+        print(f"{Fore.RED}Error: state-spec.md does not exist, use 'python mk_state_spec.py <graph_spec_path>' first{Style.RESET_ALL}")
         sys.exit(1)
-    state_spec_file = Path(graph_name) / "state_spec.md"
     print(f"{Fore.GREEN}State spec: {Fore.BLUE}{state_spec_file}{Style.RESET_ALL}")
     with open(state_spec_file, "r") as file:
         state_spec = file.read()
@@ -37,6 +36,12 @@ if __name__ == "__main__":
                                       state_code_example=state_code_example,
                                       model_name=agent.model.id)
     result = agent.run(prompt)
+    if isinstance(agent, OpenRouterAgent):
+        code = extract_python_code(result.choices[0].message.content)
+        with open(f"{graph_name}/state_code.py", "w") as f:
+            f.write(code)
+    else:
+        pass # the Agno agent writes the response to the correct file
     # verify state_code.py exists
     if not (Path(graph_name) / "state_code.py").exists():
         print(f"{Fore.RED}Error: state_code.py does not exist{Style.RESET_ALL}")
