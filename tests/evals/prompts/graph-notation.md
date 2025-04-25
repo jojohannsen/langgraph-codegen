@@ -1,24 +1,18 @@
-Certainly! Here is your language documentation, reorganized into the proposed sections and delimited with XML-style tags:
 
----
-
-<INTRODUCTION>
-This document describes a specification language for defining a computational graph using the langgraph framework. The language is designed to specify stateful, branching, and even parallel graph workflows by means of a compact text format. The specification is not imperative code—it provides a declarative representation of nodes (functions), their transitions, and how state evolves across the graph.
+This document describes a Graph Specification for a graph using the langgraph framework. 
+The language is specifies direct edges, branching, and even parallel graph workflows by means of a compact text format.
 
 This language is especially useful for outlining multi-step, interactive, or conditional workflows, such as chatbots or data processors, which can then be compiled into working Python code using langgraph.
 
-</INTRODUCTION>
-
-<STRUCTURE>
+## Key Components
 A graph specification consists of lines that define nodes, how they connect, and special interpreter instructions. The language is line-oriented, with conventions for comments, node and state naming, and graph flow.
 
 The key components of this graph specification language are:
 - **State classes**: define the data available during graph execution
-- **Node functions**: perform operations and update state
+- **Node Functions**: perform operations and update state
 - **Edges**: define transitions between nodes (with optional parallelism or conditionals)
-- **Worker and Routing functions**: support for more complex flows
+- **Worker and Routing Functions**: support for more complex flows
 
-</STRUCTURE>
 
 <SYNTAX>
 - **Comments:** Lines starting with `#` are ignored.
@@ -117,7 +111,7 @@ Worker function example:
 def worker(field_value: str, *, config: Optional[RunnableConfig] = None) -> Dict[str, Any]:
     # field_value is one idea from the ideas list
     result = ...
-    return { "processed_ideas": [result] }
+    return {{ "processed_ideas": [result] }}
 ```
 
 **Note:** The processed field type **must be**  
@@ -187,7 +181,7 @@ def ask_for_another(state: JokesterState):
     elif tell_another_END(state):
         return 'END'
     return 'END'
-ask_for_another_conditional_edges = { 'tell_joke': 'tell_joke', 'END': END }
+ask_for_another_conditional_edges = {{ 'tell_joke': 'tell_joke', 'END': END }}
 builder_jokester.add_conditional_edges('ask_for_another', ask_for_another, ask_for_another_conditional_edges)
 jokester = builder_jokester.compile(checkpointer=checkpoint_saver)
 ```
@@ -253,7 +247,7 @@ class MyState(BaseModel):
 ```python
 def worker(field_value: str, *, config: Optional[RunnableConfig] = None) -> Dict[str, Any]:
     result = ...
-    return { "processed_ideas": [result] }
+    return {{ "processed_ideas": [result] }}
 ```
 </FULL_EXAMPLES>
 

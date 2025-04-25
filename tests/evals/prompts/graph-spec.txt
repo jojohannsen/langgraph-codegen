@@ -1,13 +1,7 @@
-Certainly! Here is your language documentation, reorganized into the proposed sections and delimited with XML-style tags:
 
----
-
-<INTRODUCTION>
 This document describes a specification language for defining a computational graph using the langgraph framework. The language is designed to specify stateful, branching, and even parallel graph workflows by means of a compact text format. The specification is not imperative code—it provides a declarative representation of nodes (functions), their transitions, and how state evolves across the graph.
 
 This language is especially useful for outlining multi-step, interactive, or conditional workflows, such as chatbots or data processors, which can then be compiled into working Python code using langgraph.
-
-</INTRODUCTION>
 
 <STRUCTURE>
 A graph specification consists of lines that define nodes, how they connect, and special interpreter instructions. The language is line-oriented, with conventions for comments, node and state naming, and graph flow.

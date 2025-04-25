@@ -27,7 +27,7 @@ if __name__ == "__main__":
     Path(graph_name).mkdir(parents=True, exist_ok=True)
     config = get_config(graph_name)
     print(f"{Fore.GREEN}Graph folder: {Fore.BLUE}{graph_name}{Style.RESET_ALL}")
-    agent = mk_agent(graph_name, config)
+
     # if state_spec.md doesn't exist, exit
     state_spec_file = Path(graph_name) / "state-spec.md"
     if not state_spec_file.exists():
@@ -43,15 +43,16 @@ if __name__ == "__main__":
     node_spec_file = Path(graph_name) / "node-spec.md"
     with open(node_spec_file, "r") as file:
         node_spec = file.read()
-    graph_spec_description = get_single_prompt(config, 'graph_spec_description')
+    graph_notation = get_single_prompt(config, 'graph_notation')
     graph_spec_prompt = get_single_prompt(config, 'graph_spec')
-    prompt = graph_spec_prompt.format(graph_spec_description=graph_spec_description, 
+    prompt = graph_spec_prompt.format(graph_notation=graph_notation, 
                                      graph_name=graph_name,
                                      graph_spec=graph_spec, 
                                      state_spec=state_spec, 
                                      state_code=state_code,
                                      node_spec=node_spec,
-                                     model_name=agent.model.id)
+                                     model_name=config['spec']['llm_model'])
+    agent = mk_agent(graph_name, config['spec']['llm_provider'], config['spec']['llm_model'], config['spec']['agent_library'], system_prompt=prompt)
     result = agent.run(prompt)
     graph_spec_file = Path(graph_name) / f"graph-spec.md"
     if isinstance(agent, OpenRouterAgent):

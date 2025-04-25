@@ -1,9 +1,39 @@
-provider: "anthropic"
-models:
-  google: "gemini-2.5-pro-exp-03-25"
-  openai: "gpt-4.1"
-  anthropic: "claude-3-7-sonnet-latest"
-  openrouter: "qwen/qwen2.5-coder-7b-instruct"
+# the generate Node Functions use these
+node:
+  agent_library: "langchain" # can be: agno, langchain 
+  llm_provider: "openai"  # can be: google, openai, anthropic, openrouter
+  llm_model: "gpt-4.1"
+
+# when the spec is generated, these are used
+spec:
+  agent_library: "agno"
+  llm_provider: "openai"  # can be: google, openai, anthropic, openrouter
+  llm_model: "gpt-4.1"
+  #llm_provider: "anthropic"
+  #llm_model: "claude-3-7-sonnet-latest"
+  #llm_provider: "openrouter"
+  #llm_model: "qwen/qwen2.5-coder-7b-instruct"
+  #llm_model: "deepseek/deepseek-chat-v3-0324:free"
+
+# when the State, Node, and Graph code is generated, these are used
+code:
+  agent_library: "agno"
+  #llm_provider: "openrouter"
+  #llm_model: "qwen/qwen-2.5-72b-instruct"
+  #llm_provider: "openai"  # can be: google, openai, anthropic, openrouter
+  #llm_model: "gpt-4.1"
+  llm_provider: "anthropic"
+  llm_model: "claude-3-7-sonnet-latest"
+
+# these can be used as llm_provider 
+# not sure if google belongs here, i've only got it working via openrouter
+providers:
+  - google
+  - openai
+  - anthropic
+  - openrouter
+
+# openrouter supports a lot of models, these are just for reference
 openrouter_models:
   - "qwen/qwen2.5-coder-7b-instruct"
   - "google/gemini-2.5-flash-preview"
@@ -11,13 +41,15 @@ openrouter_models:
   - "openai/gpt-4.1-mini"
   - "openai/gpt-4.1-nano"
   - "agentica-org/deepcoder-14b-preview:free"
+  - "deepseek/deepseek-chat-v3-0324:free"
   - "x-ai/grok-3-mini-beta"
   - "x-ai/grok-3-beta"
   - "nvidia/llama-3.3-nemotron-super-49b-v1:free"
   - "anthropic/claude-3.7-sonnet"
   - "meta-llama/llama-4-maverick"
+
 prompts:
-  graph_spec_description: "file:prompts/graph-spec.md"
+  graph_notation: "hub:johannes/lgcodegen-graph-notation"
   human_input_example: "file:prompts/human-questionary-input.md"
   node_code_example: "file:prompts/node-code-example.md"
   state_spec_prompt: "file:prompts/state-spec-prompt.md" #"hub:johannes/lgcodegen-gen_state_spec"

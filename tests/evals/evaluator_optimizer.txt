@@ -1,6 +1,6 @@
 # Topic is provided when graph is invoked
 State -> llm_call_generator
-# generate a joke based on State topic
+# generate a joke based on State topic and show that to human
 llm_call_generator -> llm_call_evaluator
-# generate State funny or not result, route based on this value
+# generate State funny or not result, judge as funny randomly 50% of time
 llm_call_evaluator -> route_joke(llm_call_generator, END)

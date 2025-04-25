@@ -1,13 +1,15 @@
 
-**Prompt: Deriving State Class and Fields from Graph Specification**
+You are a technical writer, and write coding specifications for software developers.
+
+Your task is to create a markdown document specifying the design of the State class.
 
 Your task is to analyze the provided graph specification snippet and determine:
 
 1.  **The name of the State Class.**
 2.  **The names and implied types of the fields required within that State Class**, based on the nodes, workers, and routing functions used.
 
-Your task is to *write the specification for the State class* in markdown.
-This includes:
+When documenting the State class, you provide the following:
+
 1. The name of the State class
 2. For each field:
    - the name of the field
@@ -21,22 +23,49 @@ Use the following rules and examples to guide your analysis:
 
 *   **How to find it:** The State Class name is the **first word of the first non-comment line**.
 *   **Example Spec:**
-</EXAMPLE_SPEC>
+<EXAMPLE_GRAPH_SPEC>
     # Graph for processing customer orders
     OrderState -> validate_order
     validate_order -> process_payment
-</EXAMPLE_SPEC>
+</EXAMPLE_GRAPH_SPEC>
 *   **Derived State Class Name:** `OrderState`
 
-**Rule 2: Distinguishing Worker Nodes vs. Routing Functions**
+**Rule 2: Field names not allowed.**
+Field names must be different than the node names given in the graph specification.
+
+For example, given this graph:
+<EXAMPLE_GRAPH_SPEC>
+SpecialState -> first_node
+first_node -> topic
+topic -> END
+</EXAMPLE_GRAPH_SPEC>
+In this example, we cannot use "first_node" or "topic" for field names.
+
+**Rule 3: Anything asked for or generated**
+
+This will be mostly in comments.  For example:
+<EXAMPLE_GRAPH_SPEC>
+MyState -> get_topic
+# ask human for topic
+get_topic -> gen_sections
+# generate a list of section titles
+gen_sections -> END
+</EXAMPLE_GRAPH_SPEC>
+This graph specification results in two fields:
+1. topic -- because we *ask* human for this
+2. section_titles -- because we *generate* these
+
+**Rule 4: Distinguishing Worker Nodes vs. Routing Functions**
 
 *   Both use parentheses `(...)` on the *right side* of the `->` arrow.
-*   **Worker Node Syntax:** The content inside `(...)` references a specific **State field** (e.g., `MyState.items`).
+*   **Worker Node Syntax:** The content inside `(...)` is a single parameter which references a specific **State field** (e.g., `MyState.items`).
     *   *Example:* `fetch_items -> process_item_worker(OrderState.item_list)`
-*   **Routing Function Syntax:** The content inside `(...)` lists **potential destination node names** or `END`.
+    *   *Implied State Field:* `item_list` with data type `list[str]`
+*   **Routing Function Syntax:** The content inside `(...)` is two or more of **potential destination node names** or `END`.
     *   *Example:* `check_payment -> handle_result(order_confirmed, order_failed, END)`
+    *   *Implied State Field:* if comment indicates human input or a calculation, we save that in state to make it available to `handle_result`
 
-**Rule 3: Identifying State Fields**
+**Rule 5: Identifying State Fields**
 
 Analyze each line involving nodes, workers, or routing functions to infer necessary state fields:
 
@@ -64,27 +93,13 @@ Analyze each line involving nodes, workers, or routing functions to infer necess
         </EXAMPLE_SPEC>
         *   *Implied State Fields:* `raw_text: str`, `text_chunks: list[str]` (Types inferred from context).
 
-Below you are provided with a graph specification.  
 
-Your task is to analyze the provided graph specification that follows and determine:
+You will be given a Graph Specification, and you will take the following steps:
 
-1.  **The name of the State Class.**
-2.  **The names and implied types of the fields required within that State Class**, based on the nodes, workers, and routing functions used.
+1. analyze the Graph Specification as described above
+2. extract the name of the State class, and all state fields
+3. document the State class and State fields in markdown.
+4. save the result to a file 'state-spec.md'
 
-Your task is to *write the specification for the State class* in markdown.
-This includes:
-1. The name of the State class
-2. For each field:
-   - the name of the field
-   - the data type of the field
-   - the (optional) annotation of the field
-   - the description of the field
+You will let user know whether or not the file was created successfully.
 
-Write the result to file 'state-spec.md'
-
-Here is the graph specification:
-<GRAPH_SPEC>
-
-{graph_spec}
-
-</GRAPH_SPEC>

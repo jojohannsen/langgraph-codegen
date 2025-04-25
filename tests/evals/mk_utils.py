@@ -14,7 +14,16 @@ from langchain.prompts import PromptTemplate
 from dataclasses import dataclass
 from typing import List, Set, Optional, Tuple
 from langchain_openai import ChatOpenAI
+from lft import create_file_management_agent
 
+def get_tools(config, category):
+    agent_library = config[category]['agent_library']
+    llm_provider = config[category]['llm_provider']
+    llm_model = config[category]['llm_model']
+    # one sentence summary of tools we use (the above 3 variables) for writing specifications
+    tools_summary = f"  {llm_provider}, {llm_model} using{agent_library} with tools to write file."
+    print(f"{Fore.GREEN}Tools: {Fore.BLUE}{tools_summary}{Style.RESET_ALL}")
+    return agent_library, llm_provider, llm_model
 
 def get_prompt(prompt_name, template_only=False):
     client = Client()
@@ -25,7 +34,7 @@ def get_prompt(prompt_name, template_only=False):
         else:
             return prompt.messages[0].prompt
     elif prompt_name.startswith("file:"):
-        print(f"{Fore.CYAN}Reading prompt from file: {Fore.BLUE}{prompt_name[5:]}{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}Reading: {Fore.BLUE}{prompt_name[5:]}{Style.RESET_ALL}")
         with open(prompt_name[5:], "r") as f:
             content = f.read()
             if template_only:
@@ -42,7 +51,7 @@ def get_single_prompt(config, prompt_type):
     Args:
         config (dict): Configuration dictionary containing prompts
         prompt_type (str): Type of prompt to retrieve. Valid values are:
-            - 'graph_spec_description'
+            - 'graph_notation'
             - 'state_spec'
             - 'state_code'
             - 'node_spec'
@@ -54,7 +63,7 @@ def get_single_prompt(config, prompt_type):
         The requested prompt or None if prompt type is invalid
     """
     prompt_mapping = {
-        'graph_spec_description': ('graph_spec_description', True),
+        'graph_notation': ('graph_notation', True),
         'human_input_example': ('human_input_example', True),
         'node_code_example': ('node_code_example', True),
         'state_spec': ('state_spec_prompt', False),
@@ -84,6 +93,61 @@ def get_file(graph_name, area, file_type):
     # if file is not found, return None
     return None
 
+def prepare_working_folder(graph_name):
+    """Prepares a working directory for graph code generation and configuration.
+
+    This function creates a working directory for the specified graph if it doesn't exist,
+    sets up the necessary configuration, and creates required utility files. It handles
+    the setup of LLM (Language Learning Model) configurations and generates the LLM code file.
+
+    Args:
+        graph_name (str): The name of the graph, which will be used as the directory name
+            and for configuration file naming.
+
+    Returns:
+        dict: A configuration dictionary containing:
+            - node_agent_provider: The agent library to be used
+            - node_llm_provider: The LLM provider (e.g., 'openai', 'anthropic')
+            - node_llm_model: The specific LLM model to use
+
+    Raises:
+        SystemExit: If required files cannot be created or accessed.
+
+    Example:
+        >>> config = prepare_working_folder("my_graph")
+        >>> print(config['node_llm_provider'])
+        'openai'
+    """
+    # create the working_dir if it does not exist
+    Path(graph_name).mkdir(parents=True, exist_ok=True)
+    config = get_config(graph_name)
+    node_config = config['node']
+    node_agent_provider = node_config['agent_library']
+    node_llm_provider = node_config['llm_provider']
+    node_llm_model = node_config['llm_model']
+    print(f"{Fore.CYAN}Node Agent Provider: {Fore.BLUE}{node_agent_provider}{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}Node LLM Provider: {Fore.BLUE}{node_llm_provider}{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}Node LLM Model: {Fore.BLUE}{node_llm_model}{Style.RESET_ALL}")
+
+    # Get the LLM code template from langsmith hub
+    llm_code_template = get_prompt("hub:johannes/lgcodegen-node-llm-code", template_only=True)
+    if llm_code_template:
+        # Format the template with the LLM configuration
+        formatted_code = llm_code_template.format(
+            llm_provider=node_llm_provider,
+            llm_model=node_llm_model
+        )
+        # Write the formatted code to lgcodegen_llm.py
+        llm_code_file = Path(graph_name) / "lgcodegen_llm.py"
+        print(f"{Fore.CYAN}Writing LLM code to: {Fore.BLUE}{llm_code_file}{Style.RESET_ALL}")
+        with open(llm_code_file, "w") as f:
+            f.write(formatted_code)
+    else:
+        print(f"{Fore.RED}Error: Could not fetch LLM code template from langsmith hub{Style.RESET_ALL}")
+        sys.exit(1)
+
+    return config
+
 def get_config(graph_name):
     # we look for yaml file first in {graph_name}/{graph_name}.yaml
     # if not found, we look for {graph_name}.yaml in the current directory, and copy it to {graph_name}/{graph_name}.yaml
@@ -101,7 +165,6 @@ def get_config(graph_name):
             # read default.yaml file
             with open(default_config, "r") as f:
                 default_config_content = f.read()
-            # copy the graph_spec_description to the graph_spec_description.txt file
             with open(path_to_yaml, "w") as f:
                 f.write(default_config_content)
     print(f"{Fore.CYAN}Reading: {Fore.BLUE}{path_to_yaml}{Style.RESET_ALL}")
@@ -111,7 +174,7 @@ def get_config(graph_name):
         # if that config doesn't have prompts, add the default prompts
         if 'prompts' not in config:
             config['prompts'] = {}
-            config['prompts']['graph_spec_description'] = "hub:johannes/lgcodegen-graph-spec"
+            config['prompts']['graph_notation'] = "hub:johannes/lgcodegen-graph-notation"
             config['prompts']['human_input_example'] = "hub:johannes/lgcodegen-questionary_human_input"
             config['prompts']['node_code_example'] = "hub:johannes/lgcodegen-node_code_example"
             config['prompts']['state_spec_prompt'] = "hub:johannes/lgcodegen-gen_state_spec"
@@ -160,12 +223,13 @@ class OpenRouterAgent:
         self.model = SimpleNamespace(id=model_name)
         self.instructions = instructions
     def run(self, prompt):
+        print(f"{Fore.CYAN}Running OpenRouter Agent with model {Fore.BLUE}{self.model_name}{Style.RESET_ALL}")
+        print(f"Instructions: {Fore.BLUE}{self.instructions}{Style.RESET_ALL}")
         return self.client.chat.completions.create(
             model=self.model_name, 
             messages=[
-                #{"role": "system", "content": self.instructions} if self.instructions else "You are a helpful developer, writing very clear and concise code and specifications.",
-                {"role": "user", 
-                 "content": prompt}
+                {"role": "system", "content": self.instructions},
+                {"role": "user", "content": prompt}
             ]
         )
 
@@ -189,33 +253,47 @@ def extract_python_code(text):
     # Return the first match if found, otherwise empty string
     return matches[0] if matches else ""
 
-def mk_agent(working_dir, config):
-    model_name = config['models'][config['provider']]
-    print(f"{Fore.CYAN}Model: {Fore.BLUE}{model_name}{Style.RESET_ALL}")
-    agent = None
-    if config['provider'] == "anthropic":
-        agent = Agent(model=Claude(id=model_name), tools=[FileTools(Path(working_dir))])
-    elif config['provider'] == "openai":
+
+
+def mk_agent(working_dir, llm_provider, llm_model, agent_library, system_prompt=None):
+    print(f"  {Fore.CYAN}LLM Provider: {Fore.BLUE}{llm_provider}{Style.RESET_ALL}")
+    print(f"  {Fore.CYAN}LLM Model: {Fore.BLUE}{llm_model}{Style.RESET_ALL}")
+    print(f"  {Fore.CYAN}Agent Library: {Fore.BLUE}{agent_library}{Style.RESET_ALL}")
+    system_prompt = system_prompt.replace("{", "{{").replace("}", "}}") if system_prompt else None
+    if agent_library == "langchain":
+        print(f"{Fore.CYAN}Writing files with LangChain Agent with WriteFileTool, using {llm_provider} {llm_model}{Style.RESET_ALL}")
+        agent = create_file_management_agent(provider=llm_provider,
+                                            model=llm_model,  
+                                            base_url="https://openrouter.ai/api/v1",
+                                            api_key=os.getenv('OPENROUTER_API_KEY'),
+                                            system_prompt=system_prompt,
+                                            workspace_dir=working_dir)
+        return agent
+    
+    print(f"{Fore.CYAN}Writing files with Agno Agent + FileTools{Style.RESET_ALL}")
+    if llm_provider == "anthropic":
+        agent = Agent(model=Claude(id=llm_model), tools=[FileTools(Path(working_dir))])
+    elif llm_provider == "openai":
         agent = Agent(
-            model=OpenAIChat(id=model_name),
-            tools=[FileTools(Path(working_dir))]
+            model=OpenAIChat(id=llm_model),
+            tools=[FileTools(Path(working_dir))],
+            instructions=[system_prompt]
         )
-    elif config['provider'] == "google":
+    elif llm_provider == "google":
         agent = Agent(
-            model=Gemini(id=model_name),
-            tools=[FileTools(Path(working_dir))]
+                model=Gemini(id=llm_model),
+                tools=[FileTools(Path(working_dir))],
+                instructions=[system_prompt]
         )
-    elif config['provider'] == 'openrouter':
-        agent = OpenRouterAgent(model_name, os.getenv('OPENROUTER_API_KEY'))
+    elif llm_provider == 'openrouter':
+        print(f"{Fore.CYAN}Using OpenRouter for file management{Style.RESET_ALL}")
+        agent = OpenRouterAgent(llm_model, os.getenv('OPENROUTER_API_KEY'))
+    else:
+        raise ValueError(f"Unsupported LLM provider: {llm_provider}")
     return agent
 
 
 
-# Create the LangGraph agent
-def call_model(state):
-    messages = state["messages"]
-    response = model_with_tools.invoke(messages)
-    return {"messages": [response]}
 # solveit langgraph_DSL notebook
 def unit_generator(graph):
     lines = graph.split("\n")

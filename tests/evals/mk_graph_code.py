@@ -20,7 +20,7 @@ if __name__ == "__main__":
 
     print(f"{Fore.GREEN}Graph folder: {Fore.BLUE}{graph_name}{Style.RESET_ALL}")
     config = get_config(graph_name)
-    agent = mk_agent(graph_name, config)
+
     # if state-spec.md doesn't exist, exit
     state_spec_file = Path(graph_name) / "state-spec.md"
     if not state_spec_file.exists():
@@ -31,17 +31,18 @@ if __name__ == "__main__":
     state_code = get_file(graph_name, "state", "code")
     node_spec = get_file(graph_name, "node", "spec")
     graph_flow_spec = get_file(graph_name, "graph", "spec")
-    graph_spec_description = get_single_prompt(config, 'graph_spec_description')
+    graph_notation = get_single_prompt(config, 'graph_notation')
     graph_code_prompt = get_single_prompt(config, 'graph_code')
-    prompt = graph_code_prompt.format(graph_spec_description=graph_spec_description, 
+    prompt = graph_code_prompt.format(graph_notation=graph_notation, 
                                      graph_name=graph_name,
                                      graph_spec=graph_spec, 
                                      graph_flow_spec=graph_flow_spec, 
                                      state_spec=state_spec, 
                                      state_code=state_code,
                                      node_spec=node_spec,
-                                     model_name=agent.model.id)
+                                     model_name=[config['code']['llm_model']])
     # use agent.run if its an Agno Agent, otherwise use agent.invoke
+    agent = mk_agent(graph_name, config['code']['llm_provider'], config['code']['llm_model'], config['code']['agent_library'], system_prompt=prompt)
     result = agent.run(prompt)
     graph_code_file = Path(graph_name) / f"graph_code.py"
     if isinstance(agent, OpenRouterAgent):

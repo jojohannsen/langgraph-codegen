@@ -11,7 +11,7 @@ from agno.models.anthropic import Claude
 from agno.models.openai import OpenAIChat
 from agno.tools.duckduckgo import DuckDuckGoTools
 
-from mk_utils import read_file_and_get_subdir, mk_agent, get_config, get_single_prompt, OpenRouterAgent, extract_python_code
+from mk_utils import read_file_and_get_subdir, mk_agent, get_config, get_single_prompt, OpenRouterAgent, extract_python_code, prepare_working_folder
 
 if __name__ == "__main__":
     # Initialize colorama (needed for Windows)
@@ -23,11 +23,10 @@ if __name__ == "__main__":
 
     file_path = sys.argv[1]
     graph_name, graph_spec = read_file_and_get_subdir(file_path)
-        # create the working_dir if it does not exist
-    Path(graph_name).mkdir(parents=True, exist_ok=True)
+    prepare_working_folder(graph_name)
     config = get_config(graph_name)
     print(f"{Fore.GREEN}Graph folder: {Fore.BLUE}{graph_name}{Style.RESET_ALL}")
-    agent = mk_agent(graph_name, config)
+
     # if state_spec.md doesn't exist, exit
 
     state_spec_file = Path(graph_name) / "state-spec.md"
@@ -46,22 +45,26 @@ if __name__ == "__main__":
         sys.exit(1)
     with open(node_spec_file, "r") as file:
         node_spec = file.read()
-    graph_spec_description = get_single_prompt(config, 'graph_spec_description')
+    graph_notation = get_single_prompt(config, 'graph_notation')
     human_input_example = get_single_prompt(config, 'human_input_example')
     node_code_prompt = get_single_prompt(config, 'node_code')
     node_code_example = get_single_prompt(config, 'node_code_example')
-    prompt = node_code_prompt.format(graph_spec_description=graph_spec_description, 
+    prompt = node_code_prompt.format(graph_notation=graph_notation, 
                                      graph_name=graph_name,
                                      graph_spec=graph_spec, 
                                      state_spec=state_spec, 
                                      state_code=state_code,
                                      node_spec=node_spec,
-                                     model_name=agent.model.id,
+                                     model_name=config['code']['llm_model'],
                                      human_input_example=human_input_example,
                                      node_code_example=node_code_example)
+    agent = mk_agent(graph_name, config['code']['llm_provider'], config['code']['llm_model'], config['code']['agent_library'], system_prompt=prompt)
+
     result = agent.run(prompt)
     node_code_file = Path(graph_name) / "node_code.py"
     if isinstance(agent, OpenRouterAgent):
+        print("OPENROUTER AGENT")
+        print(result)
         code = extract_python_code(result.choices[0].message.content)
         with open(node_code_file, "w") as f:
             f.write(code)

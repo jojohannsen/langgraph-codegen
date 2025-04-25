@@ -19,7 +19,7 @@ if __name__ == "__main__":
     Path(graph_name).mkdir(parents=True, exist_ok=True)
     config = get_config(graph_name)
     print(f"{Fore.GREEN}Graph folder: {Fore.BLUE}{graph_name}{Style.RESET_ALL}")
-    agent = mk_agent(graph_name, config)
+
     # if state_spec.md doesn't exist, exit
     state_spec_file = Path(graph_name) / "state-spec.md"
     if not state_spec_file.exists():
@@ -47,14 +47,15 @@ if __name__ == "__main__":
 #        print(f"{Fore.RED}Error: could not find state class in {py_files}{Style.RESET_ALL}")
 #       sys.exit(1)
     print(f"{Fore.GREEN}Node spec file: {Fore.BLUE}{node_spec_file}{Style.RESET_ALL}")
-    graph_spec_description = get_single_prompt(config, 'graph_spec_description')
+    graph_notation = get_single_prompt(config, 'graph_notation')
     node_spec_prompt = get_single_prompt(config, 'node_spec')
-    prompt = node_spec_prompt.format(graph_spec_description=graph_spec_description, 
+    prompt = node_spec_prompt.format(graph_notation=graph_notation, 
                                      graph_name=graph_name,
                                      graph_spec=graph_spec, 
                                      state_spec=state_spec, 
                                      state_code=state_code,
-                                     model_name=agent.model.id)
+                                     model_name=config['spec']['llm_model'])
+    agent = mk_agent(graph_name, config['spec']['llm_provider'], config['spec']['llm_model'], config['spec']['agent_library'], system_prompt=prompt)
     result = agent.run(prompt)
     if isinstance(agent, OpenRouterAgent):
         with open(node_spec_file, "w") as f:
