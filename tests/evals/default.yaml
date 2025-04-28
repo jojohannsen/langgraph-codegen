@@ -52,7 +52,7 @@ prompts:
   graph_notation: "hub:johannes/lgcodegen-graph-notation"
   human_input_example: "file:prompts/human-questionary-input.md"
   node_code_example: "file:prompts/node-code-example.md"
-  state_spec_prompt: "file:prompts/state-spec-prompt.md" #"hub:johannes/lgcodegen-gen_state_spec"
+  state_spec_prompt: "hub:johannes/lgcodegen-gen_state_spec" #"file:prompts/state-spec-prompt.md"
   state_code_prompt: "hub:johannes/lgcodegen-gen_state_code"
   state_code_example: "file:prompts/state-code-example.md"
   node_spec_prompt: "hub:johannes/lgcodegen-gen_node_spec"

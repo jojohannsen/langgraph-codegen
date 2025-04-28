@@ -5,4 +5,4 @@ get_joke_topic -> tell_joke
 # then we generate a joke, and display it
 tell_joke -> ask_for_another
 # then we ask user if they want another joke, we route based on that result
-ask_for_another -> tell_another(tell_joke, END)
+ask_for_another -> tell_another(get_joke_topic, END)

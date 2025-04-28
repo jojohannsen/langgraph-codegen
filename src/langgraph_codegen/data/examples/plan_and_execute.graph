@@ -1,10 +1,8 @@
 # Plan and Execute Agent
-START(PlanExecute) => plan_step
+PlanExecute -> plan_step
 
-plan_step => execute_step
+plan_step -> execute_step
 
-execute_step => replan_step
+execute_step -> replan_step
 
-replan_step
-  is_done => END
-  => execute_step
+replan_step -> is_done(END, execute_step)

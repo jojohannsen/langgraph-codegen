@@ -413,7 +413,7 @@ from langchain_core.runnables.config import RunnableConfig
 
         # If no generation flags are set, just show the file contents
         if not (args.graph or args.nodes or args.conditions or args.state or args.code):
-            print(f"\n{Fore.BLUE}------ Graph START, {file_path} ------{Style.RESET_ALL}")
+            print(f"\n{Fore.BLUE}------ Graph START ------{Style.RESET_ALL}")
             # Print each line, making comments gray
             for line in graph_spec.splitlines():
                 if line.strip().startswith('#'):

@@ -1,5 +1,6 @@
+# invoke with a report topic
 State -> orchestrator
-# ask human for 'input', generate a list of report sections to be used for a report on that nput
+# generate a list of report sections based on that topic
 # generate no more than 4 sections, we store them in a list in state
 orchestrator -> worker(State.sections)
 # generate content for a section

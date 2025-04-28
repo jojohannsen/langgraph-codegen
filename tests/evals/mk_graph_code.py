@@ -30,13 +30,11 @@ if __name__ == "__main__":
     state_spec = get_file(graph_name, "state", "spec")
     state_code = get_file(graph_name, "state", "code")
     node_spec = get_file(graph_name, "node", "spec")
-    graph_flow_spec = get_file(graph_name, "graph", "spec")
     graph_notation = get_single_prompt(config, 'graph_notation')
     graph_code_prompt = get_single_prompt(config, 'graph_code')
     prompt = graph_code_prompt.format(graph_notation=graph_notation, 
                                      graph_name=graph_name,
                                      graph_spec=graph_spec, 
-                                     graph_flow_spec=graph_flow_spec, 
                                      state_spec=state_spec, 
                                      state_code=state_code,
                                      node_spec=node_spec,
