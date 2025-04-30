@@ -29,8 +29,19 @@ base_name="${selected_file%.txt}"
 # Run the commands from lg_testit with the selected file
 set -x
 rm -rf "$base_name"
+# create the base name directory
+mkdir "$base_name"
+# copy llm_cache to the base name directory
+cp -r llm_cache.py "$base_name"
+cp -r human_input.py "$base_name"
+
+# create the state spec
 python mk_state_spec.py "$selected_file"
+
+# create the state code
 python mk_state_code.py "$selected_file"
+
+# create the node spec
 python mk_node_spec.py "$selected_file"
 python mk_node_code.py "$selected_file"
 python mk_graph_code.py "$selected_file"

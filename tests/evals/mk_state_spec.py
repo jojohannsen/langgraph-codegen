@@ -39,23 +39,23 @@ if __name__ == "__main__":
         user_input = input(f"{Fore.CYAN}Do you want to delete it? (y/n){Style.RESET_ALL}")
         if user_input == "y":
             Path(state_spec_file).unlink()
+        else:
+            print(f"{Fore.GREEN}state-spec.md already exists, skipping{Style.RESET_ALL}")
+            exit(0)
     # ask if they want to run the agent
-    user_input = input(f"{Fore.CYAN}Do you want to run the agent? (y/n){Style.RESET_ALL}")
-    if user_input == "y":
-        agent = mk_agent(graph_name, llm_provider, llm_model, agent_library, 
-                         system_prompt="You are a technical writer, creating design documents for the development team.  You write in markdown.")
-        human_request = f"""Here's the graph specification:
+
+    agent = mk_agent(graph_name, llm_provider, llm_model, agent_library, 
+                        system_prompt="You are a technical writer, creating design documents for the development team.  You write in markdown.")
+    human_request = f"""Here's the graph specification:
 <GRAPH_SPEC>
 {graph_spec}
 </GRAPH_SPEC>
 
 Please write the State class specification in markdown, and save it to 'state-spec.md'
 """
-        with open("mk_state.spec_prompt.txt", "w") as f:
-            f.write("SYSTEM_PROMPT\n" + state_spec_prompt + "\n\nUSER_PROMPT\n" + human_request)
-        result = agent.run(state_spec_prompt + "\n\n" + human_request)
-    else:
-        exit(0)
+    with open("mk_state.spec_prompt.txt", "w") as f:
+        f.write("SYSTEM_PROMPT\n" + state_spec_prompt + "\n\nUSER_PROMPT\n" + human_request)
+    result = agent.run(state_spec_prompt + "\n\n" + human_request)
     # write result to mk_state_spec.result.txt
     with open("mk_state_spec.result.txt", "w") as f:
         f.write(str(result))
