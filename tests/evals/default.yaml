@@ -59,3 +59,4 @@ prompts:
   node_code_prompt: "hub:johannes/lgcodegen-gen_node_code"
   graph_spec_prompt: "hub:johannes/lgcodegen-gen_graph_spec"
   graph_code_prompt: "hub:johannes/lgcodegen-gen_graph_code"
+  main_code_prompt: "hub:johannes/lgcodegen-gen_main_code"

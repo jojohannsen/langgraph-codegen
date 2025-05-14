@@ -15,13 +15,14 @@ from dataclasses import dataclass
 from typing import List, Set, Optional, Tuple
 from langchain_openai import ChatOpenAI
 from lft import create_file_management_agent
+import questionary
 
 def get_tools(config, category):
     agent_library = config[category]['agent_library']
     llm_provider = config[category]['llm_provider']
     llm_model = config[category]['llm_model']
     # one sentence summary of tools we use (the above 3 variables) for writing specifications
-    tools_summary = f"  {llm_provider}, {llm_model} using{agent_library} with tools to write file."
+    tools_summary = f"  {llm_provider}, {llm_model} using {agent_library} with tools to write file."
     print(f"{Fore.GREEN}Tools: {Fore.BLUE}{tools_summary}{Style.RESET_ALL}")
     return agent_library, llm_provider, llm_model
 
@@ -58,6 +59,7 @@ def get_single_prompt(config, prompt_type):
             - 'node_code'
             - 'graph_spec'
             - 'graph_code'
+            - 'main_code'
             
     Returns:
         The requested prompt or None if prompt type is invalid
@@ -71,7 +73,8 @@ def get_single_prompt(config, prompt_type):
         'node_spec': ('node_spec_prompt', False),
         'node_code': ('node_code_prompt', False),
         'graph_spec': ('graph_spec_prompt', False),
-        'graph_code': ('graph_code_prompt', False)
+        'graph_code': ('graph_code_prompt', False),
+        'main_code': ('main_code_prompt', False)
     }
     
     if prompt_type not in prompt_mapping:
@@ -688,4 +691,24 @@ def validate_graph(transitions):
         result.is_valid = False
     
     return result
+
+class FileOverwriteManager:
+    def __init__(self, file_path, file_description="file"):
+        self.file_path = Path(file_path)
+        self.file_description = file_description
+        self.should_continue = True
+    def __enter__(self):
+        if self.file_path.exists():
+            print(f"{Fore.YELLOW}{self.file_description} already exists at {self.file_path}.{Style.RESET_ALL}")
+            overwrite = questionary.confirm(
+                f"Overwrite?"
+            ).ask()
+            if not overwrite:
+                print(f"{Fore.RED}Aborted by user. {self.file_description} will not be overwritten.{Style.RESET_ALL}")
+                self.should_continue = False
+        return self
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if not self.file_path.exists():
+            print(f"{Fore.RED}Error: {self.file_description} was not created at {self.file_path}{Style.RESET_ALL}")
+            sys.exit(1)
 
