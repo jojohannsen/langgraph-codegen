@@ -14,7 +14,6 @@ from langchain.prompts import PromptTemplate
 from dataclasses import dataclass
 from typing import List, Set, Optional, Tuple
 from langchain_openai import ChatOpenAI
-from lft import create_file_management_agent
 import questionary
 
 def get_tools(config, category):
@@ -228,6 +227,7 @@ class OpenRouterAgent:
     def run(self, prompt):
         print(f"{Fore.CYAN}Running OpenRouter Agent with model {Fore.BLUE}{self.model_name}{Style.RESET_ALL}")
         print(f"Instructions: {Fore.BLUE}{self.instructions}{Style.RESET_ALL}")
+        print(f"Prompt: {Fore.BLUE}{prompt}{Style.RESET_ALL}")
         return self.client.chat.completions.create(
             model=self.model_name, 
             messages=[
@@ -263,15 +263,6 @@ def mk_agent(working_dir, llm_provider, llm_model, agent_library, system_prompt=
     print(f"  {Fore.CYAN}LLM Model: {Fore.BLUE}{llm_model}{Style.RESET_ALL}")
     print(f"  {Fore.CYAN}Agent Library: {Fore.BLUE}{agent_library}{Style.RESET_ALL}")
     system_prompt = system_prompt.replace("{", "{{").replace("}", "}}") if system_prompt else None
-    if agent_library == "langchain":
-        print(f"{Fore.CYAN}Writing files with LangChain Agent with WriteFileTool, using {llm_provider} {llm_model}{Style.RESET_ALL}")
-        agent = create_file_management_agent(provider=llm_provider,
-                                            model=llm_model,  
-                                            base_url="https://openrouter.ai/api/v1",
-                                            api_key=os.getenv('OPENROUTER_API_KEY'),
-                                            system_prompt=system_prompt,
-                                            workspace_dir=working_dir)
-        return agent
     
     print(f"{Fore.CYAN}Writing files with Agno Agent + FileTools{Style.RESET_ALL}")
     if llm_provider == "anthropic":

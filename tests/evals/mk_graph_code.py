@@ -2,8 +2,8 @@
 import sys
 from colorama import init, Fore, Style
 from pathlib import Path
-from mk_utils import read_file_and_get_subdir, mk_agent, get_config, get_single_prompt, get_file, OpenRouterAgent, extract_python_code
-from agno.agent import Agent
+from mk_utils import read_file_and_get_subdir
+from gen_graph_code import *
 
 if __name__ == "__main__":
     # Initialize colorama (needed for Windows)
@@ -15,46 +15,20 @@ if __name__ == "__main__":
 
     file_path = sys.argv[1]
     graph_name, graph_spec = read_file_and_get_subdir(file_path)
-        # create the working_dir if it does not exist
-    Path(graph_name).mkdir(parents=True, exist_ok=True)
-
-    print(f"{Fore.GREEN}Graph folder: {Fore.BLUE}{graph_name}{Style.RESET_ALL}")
-    config = get_config(graph_name)
-
-    # if state-spec.md doesn't exist, exit
-    state_spec_file = Path(graph_name) / "state-spec.md"
-    if not state_spec_file.exists():
-        print(f"{Fore.RED}Error: state-spec.md does not exist, use 'python mk_state_spec.py <graph_spec_path>' first{Style.RESET_ALL}")
-        sys.exit(1)
     
-    state_spec = get_file(graph_name, "state", "spec")
-    state_code = get_file(graph_name, "state", "code")
-    node_spec = get_file(graph_name, "node", "spec")
-    graph_notation = get_single_prompt(config, 'graph_notation')
-    graph_code_prompt = get_single_prompt(config, 'graph_code')
-    prompt = graph_code_prompt.format(graph_notation=graph_notation, 
-                                     graph_name=graph_name,
-                                     graph_spec=graph_spec, 
-                                     state_spec=state_spec, 
-                                     state_code=state_code,
-                                     node_spec=node_spec,
-                                     model_name=[config['code']['llm_model']])
-    # use agent.run if its an Agno Agent, otherwise use agent.invoke
-    agent = mk_agent(graph_name, config['code']['llm_provider'], config['code']['llm_model'], config['code']['agent_library'], system_prompt=prompt)
-    result = agent.run(prompt)
-    graph_code_file = Path(graph_name) / f"graph_code.py"
-    if isinstance(agent, OpenRouterAgent):
-        code = extract_python_code(result.choices[0].message.content)
-        with open(graph_code_file, "w") as f:
-            f.write(code)
-    else:
-        pass # the Agno agent writes the response to the correct file
-    # verify {graph_name}_graph_code.py was created and is not empty
-    if not graph_code_file.exists():
-        print(f"{Fore.RED}Error: graph_code.py does not exist{Style.RESET_ALL}")
+    # Create the working directory if it doesn't exist
+    Path(graph_name).mkdir(parents=True, exist_ok=True)
+    print(f"{Fore.GREEN}Graph folder: {Fore.BLUE}{graph_name}{Style.RESET_ALL}")
+    
+    # Use the generate_graph_code function
+    try:
+        content = generate_graph_code(graph_name, graph_spec)
+        print(f"{Fore.GREEN}Graph code generated successfully{Style.RESET_ALL}")
+        
+        graph_code_file = Path(graph_name) / "graph_code.py"
+        print(f"{Fore.GREEN}Graph code file: {Fore.BLUE}{graph_code_file}{Style.RESET_ALL}")
+        
+    except Exception as e:
+        print(f"{Fore.RED}Error generating graph code: {e}{Style.RESET_ALL}")
         sys.exit(1)
-    if graph_code_file.stat().st_size == 0:
-        print(f"{Fore.RED}Error: graph_code.py is empty{Style.RESET_ALL}")
-        sys.exit(1)
-    print(f"{Fore.GREEN}Graph code file: {Fore.BLUE}{graph_code_file}{Style.RESET_ALL}")
 

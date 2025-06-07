@@ -165,9 +165,7 @@ ask_for_another -> tell_another(tell_joke, END)
 **Python Graph Builder:**
 ```python
 from langgraph.graph import START, END, StateGraph
-from langgraph.checkpoint.memory import MemorySaver
 
-checkpoint_saver = MemorySaver()
 builder_jokester = StateGraph(JokesterState)
 builder_jokester.add_node('get_joke_topic', get_joke_topic)
 builder_jokester.add_node('tell_joke', tell_joke)
@@ -183,7 +181,6 @@ def ask_for_another(state: JokesterState):
     return 'END'
 ask_for_another_conditional_edges = {{ 'tell_joke': 'tell_joke', 'END': END }}
 builder_jokester.add_conditional_edges('ask_for_another', ask_for_another, ask_for_another_conditional_edges)
-jokester = builder_jokester.compile(checkpointer=checkpoint_saver)
 ```
 
 ---
@@ -202,9 +199,7 @@ aggregator -> END
 **Python Graph Builder:**
 ```python
 from langgraph.graph import START, END, StateGraph
-from langgraph.checkpoint.memory import MemorySaver
 
-checkpoint_saver = MemorySaver()
 builder_parallelization = StateGraph(State)
 builder_parallelization.add_node('get_topic', get_topic)
 builder_parallelization.add_node('story', story)
@@ -219,7 +214,6 @@ builder_parallelization.add_edge('story', 'aggregator')
 builder_parallelization.add_edge('joke', 'aggregator')
 builder_parallelization.add_edge('poem', 'aggregator')
 builder_parallelization.add_edge('aggregator', END)
-parallelization = builder_parallelization.compile(checkpointer=checkpoint_saver)
 ```
 
 ---
