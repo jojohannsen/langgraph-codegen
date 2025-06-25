@@ -153,7 +153,50 @@ def all_true_fn(edges):
     return all(edge["condition"] == "true_fn" for edge in edges)
 
 
-def mk_conditions(node_name, node_dict):
+def get_routing_function_name_from_spec(graph_spec, node_name):
+    """Extract the original function name from the graph specification.
+    
+    Looks for lines like "node_name -> function_name(param1, param2)"
+    and returns "function_name".
+    """
+    for line in graph_spec.splitlines():
+        line = line.split('#')[0].strip()  # Remove comments
+        if '->' in line and line.startswith(node_name):
+            parts = line.split('->')
+            if len(parts) == 2:
+                destination_part = parts[1].strip()
+                if '(' in destination_part:
+                    # Extract function name (everything before the first parenthesis)
+                    func_name = destination_part.split('(')[0].strip()
+                    if func_name:
+                        return func_name
+    # Fallback to the old naming scheme
+    return f"after_{node_name}"
+
+
+def get_routing_function_name(node_name, edges):
+    """Get the appropriate name for the routing function.
+    
+    If there's only one conditional edge, use that condition's name.
+    If there are multiple conditions, use the first non-true_fn condition.
+    Otherwise, fall back to after_{node_name}.
+    """
+    non_true_conditions = [edge["condition"] for edge in edges if edge["condition"] != "true_fn"]
+    
+    if len(non_true_conditions) == 1:
+        # Extract just the function name (everything before the first parenthesis)
+        condition = non_true_conditions[0]
+        return condition.split('(')[0] if '(' in condition else condition
+    elif len(non_true_conditions) > 1:
+        # Use the first condition's name for multiple conditions
+        condition = non_true_conditions[0] 
+        return condition.split('(')[0] if '(' in condition else condition
+    else:
+        # Fallback to the old naming scheme
+        return f"after_{node_name}"
+
+
+def mk_conditions(node_name, node_dict, graph_spec=None):
     edges = node_dict["edges"]
     state_type = node_dict["state"]
 
@@ -161,7 +204,12 @@ def mk_conditions(node_name, node_dict):
     if all_true_fn(edges):
         return ""
 
-    function_body = [f"def after_{node_name}(state: {state_type}):"]
+    # Use the original graph spec to get the function name if available
+    if graph_spec:
+        routing_function_name = get_routing_function_name_from_spec(graph_spec, node_name)
+    else:
+        routing_function_name = get_routing_function_name(node_name, edges)
+    function_body = [f"def {routing_function_name}(state: {state_type}):"]
 
     for i, edge in enumerate(edges):
         condition = edge["condition"]
@@ -192,7 +240,7 @@ def mk_conditions(node_name, node_dict):
     return "\n".join(function_body)
 
 
-def mk_conditional_edges(builder_graph, node_name, node_dict):
+def mk_conditional_edges(builder_graph, node_name, node_dict, graph_spec=None):
     edges = node_dict["edges"]
 
     # Case 1: parallel output (all edges are true_fn)
@@ -205,10 +253,15 @@ def mk_conditional_edges(builder_graph, node_name, node_dict):
                 edge_lines.append(f"{builder_graph}.add_edge('{node_name}', END)")
             elif "[" in destination:  # parallel output destinations
                 function, var_name, state_field = parse_string(destination)
+                # Use the original graph spec to get the function name if available
+                if graph_spec:
+                    routing_function_name = get_routing_function_name_from_spec(graph_spec, node_name)
+                else:
+                    routing_function_name = get_routing_function_name(node_name, edges)
                 edge_lines.extend([
-                    f"def after_{node_name}(state):",
+                    f"def {routing_function_name}(state):",
                     f"    return [Send('{function}', {{'{var_name}': s}}) for s in state['{state_field}']]",
-                    f"{builder_graph}.add_conditional_edges('{node_name}', after_{node_name}, ['{function}'])"
+                    f"{builder_graph}.add_conditional_edges('{node_name}', {routing_function_name}, ['{function}'])"
                 ])
             elif node_name == "START":
                 edge_lines.append(f"{builder_graph}.add_edge(START, '{destination}')")
@@ -242,10 +295,15 @@ def mk_conditional_edges(builder_graph, node_name, node_dict):
     if not has_end and no_true_fn:
         edge_mappings.append("'END': END")
     
-    if any("," in edge["destination"] for edge in edges):
-        return f"{node_name}_conditional_edges = {list(destinations)}\n{builder_graph}.add_conditional_edges('{node_name}', after_{node_name}, {node_name}_conditional_edges)\n"
+    # Use the original graph spec to get the function name if available
+    if graph_spec:
+        routing_function_name = get_routing_function_name_from_spec(graph_spec, node_name)
     else:
-        return f"{node_name}_conditional_edges = {{ {', '.join(edge_mappings)} }}\n{builder_graph}.add_conditional_edges('{node_name}', after_{node_name}, {node_name}_conditional_edges)\n"
+        routing_function_name = get_routing_function_name(node_name, edges)
+    if any("," in edge["destination"] for edge in edges):
+        return f"{node_name}_conditional_edges = {list(destinations)}\n{builder_graph}.add_conditional_edges('{node_name}', {routing_function_name}, {node_name}_conditional_edges)\n"
+    else:
+        return f"{node_name}_conditional_edges = {{ {', '.join(edge_mappings)} }}\n{builder_graph}.add_conditional_edges('{node_name}', {routing_function_name}, {node_name}_conditional_edges)\n"
 
 
 def true_fn(state):
@@ -429,10 +487,10 @@ from langgraph.graph import MessageGraph"""
     # Generate the code for edges and conditional edges
     node_code = []
     for node_name, node_dict in graph.items():
-        conditions = mk_conditions(node_name, node_dict)
+        conditions = mk_conditions(node_name, node_dict, graph_spec)
         if conditions:
             node_code.append(conditions)
-        conditional_edges = mk_conditional_edges(builder_graph, node_name, node_dict)
+        conditional_edges = mk_conditional_edges(builder_graph, node_name, node_dict, graph_spec)
         if conditional_edges:
             node_code.append(conditional_edges)
 

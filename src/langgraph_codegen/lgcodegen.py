@@ -46,8 +46,7 @@ def print_python_code(code_string, show_line_numbers=False):
 
 def list_examples():
     """List all available example graph files."""
-    print(f"\n{Fore.LIGHTBLACK_EX}Example graphs showing different code generation patterns:{Style.RESET_ALL}\n")
-    print(f"{Fore.LIGHTBLACK_EX}These demonstrate various LangGraph patterns that can be generated from the notation.{Style.RESET_ALL}\n")
+    print(f"{Fore.LIGHTBLACK_EX}These examples demonstrate some LangGraph implemenation patterns that can be generated from the notation.{Style.RESET_ALL}\n")
     
     examples = get_available_examples()
     if not examples:
@@ -55,7 +54,7 @@ def list_examples():
         return
         
     for example in sorted(examples):
-        name = example.split('/')[-1]
+        name = example.split('/')[-1].split('.')[0]
         # Keep the full filename with extension
         print(f" {Fore.BLUE}{name}{Style.RESET_ALL}")
     
@@ -432,16 +431,20 @@ from langchain_core.runnables.config import RunnableConfig
             nodes = [node for node in parsed_graph.keys() if node != "START"]
             print(f"{Fore.GREEN}Node Functions: {Fore.BLUE}{', '.join(nodes)}{Style.RESET_ALL}")
             
-            # Extract edge conditions
+            # Extract edge conditions from the original graph specification
             edge_conditions = []
-            for node, data in parsed_graph.items():
-                if "edges" in data:
-                    for edge in data["edges"]:
-                        condition = edge["condition"]
-                        if condition and condition != "true_fn":
-                            # Extract just the function name (everything before the first parenthesis)
-                            func_name = condition.split('(')[0] if '(' in condition else condition
-                            if func_name not in edge_conditions:
+            # Parse the original graph spec to find condition function names
+            for line in graph_spec.splitlines():
+                line = line.split('#')[0].strip()  # Remove comments
+                if '->' in line and '(' in line and ')' in line:
+                    # This is a line like "node_name -> function_name(param1, param2)"
+                    parts = line.split('->')
+                    if len(parts) == 2:
+                        destination_part = parts[1].strip()
+                        if '(' in destination_part:
+                            # Extract function name (everything before the first parenthesis)
+                            func_name = destination_part.split('(')[0].strip()
+                            if func_name and func_name not in edge_conditions:
                                 edge_conditions.append(func_name)
             
             # Handle singular vs plural form
