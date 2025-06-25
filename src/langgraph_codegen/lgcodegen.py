@@ -46,7 +46,8 @@ def print_python_code(code_string, show_line_numbers=False):
 
 def list_examples():
     """List all available example graph files."""
-    print(f"\n{Fore.LIGHTBLACK_EX}Example graphs (these are text files):{Style.RESET_ALL}\n")
+    print(f"\n{Fore.LIGHTBLACK_EX}Example graphs showing different code generation patterns:{Style.RESET_ALL}\n")
+    print(f"{Fore.LIGHTBLACK_EX}These demonstrate various LangGraph patterns that can be generated from the notation.{Style.RESET_ALL}\n")
     
     examples = get_available_examples()
     if not examples:
@@ -55,7 +56,7 @@ def list_examples():
         
     for example in sorted(examples):
         name = example.split('/')[-1]
-        name = name.split('.')[0]       # Get just the filename
+        # Keep the full filename with extension
         print(f" {Fore.BLUE}{name}{Style.RESET_ALL}")
     
     print(f"\n{Fore.LIGHTBLACK_EX}View a graph with: {Fore.BLUE}lgcodegen <graph_name>{Style.RESET_ALL}\n")
@@ -82,7 +83,7 @@ def show_example_content(example_name):
     example_path = get_example_path(example_name)
     if not example_path:
         print(f"{Fore.RED}Error: Example '{example_name}' not found{Style.RESET_ALL}", file=sys.stderr)
-        print(f"{Fore.YELLOW}Use --list to see available examples{Style.RESET_ALL}", file=sys.stderr)
+        print(f"{Fore.YELLOW}Use --examples to see available examples{Style.RESET_ALL}", file=sys.stderr)
         sys.exit(1)
     
     try:
@@ -319,7 +320,7 @@ def main():
     parser.add_argument('-l', '--line-numbers', action='store_true', help='Show line numbers in generated code')
     
     # Add the options
-    parser.add_argument('--list', action='store_true', help='List available example graphs')
+    parser.add_argument('--examples', action='store_true', help='List example graphs included with lgcodegen')
     parser.add_argument('--graph', action='store_true', help='Generate graph code')
     parser.add_argument('--nodes', action='store_true', help='Generate node code')
     parser.add_argument('--conditions', action='store_true', help='Generate condition code')
@@ -355,7 +356,7 @@ def main():
         repl.run()
         return
 
-    if args.list:
+    if args.examples:
         list_examples()
         return
 
@@ -427,9 +428,9 @@ from langchain_core.runnables.config import RunnableConfig
             state_class = parsed_graph[start_node]["state"]
             
             # Print summary info
-            print(f"{Fore.GREEN}State: {Fore.YELLOW}{state_class}{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}State Class: {Fore.BLUE}{state_class}{Style.RESET_ALL}")
             nodes = [node for node in parsed_graph.keys() if node != "START"]
-            print(f"{Fore.GREEN}Nodes: {Fore.YELLOW}{', '.join(nodes)}{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}Node Functions: {Fore.BLUE}{', '.join(nodes)}{Style.RESET_ALL}")
             
             # Extract edge conditions
             edge_conditions = []
@@ -438,9 +439,15 @@ from langchain_core.runnables.config import RunnableConfig
                     for edge in data["edges"]:
                         condition = edge["condition"]
                         if condition and condition != "true_fn":
-                            edge_conditions.append(f"{condition}")
+                            # Extract just the function name (everything before the first parenthesis)
+                            func_name = condition.split('(')[0] if '(' in condition else condition
+                            if func_name not in edge_conditions:
+                                edge_conditions.append(func_name)
             
-            print(f"{Fore.GREEN}Edge Conditions: {Fore.YELLOW}{', '.join(edge_conditions)}{Style.RESET_ALL}")
+            # Handle singular vs plural form
+            if edge_conditions:
+                label = "Conditional Edge Function" if len(edge_conditions) == 1 else "Conditional Edge Functions"
+                print(f"{Fore.GREEN}{label}: {Fore.BLUE}{', '.join(edge_conditions)}{Style.RESET_ALL}")
             return
             
         # Get graph name from file name (without extension)
@@ -575,7 +582,7 @@ if __name__ == "__main__":
             
     except FileNotFoundError:
         print(f"{Fore.RED}Error: File not found: {args.graph_file}{Style.RESET_ALL}", file=sys.stderr)
-        print(f"{Fore.BLUE}Use --list to see available example graphs{Style.RESET_ALL}", file=sys.stderr)
+        print(f"{Fore.BLUE}Use --examples to see available example graphs{Style.RESET_ALL}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
         print(f"{Fore.RED}Error: {str(e)}{Style.RESET_ALL}", file=sys.stderr)

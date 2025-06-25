@@ -128,7 +128,7 @@ class GraphDesignType(BaseModel):
 CLASSIFIER_PROMPT = """Given a user's question or request about graph design, determine which category it best fits into.
 Choose from these categories:
 - nodes: Questions about node creation, modification, or node relationships
-- conditions: Questions about conditional logic, edge conditions, or flow control
+- conditions: Questions about conditional logic, conditional edge functions, or flow control
 - graph: Questions about overall graph structure or workflow
 - state: Questions about state management or state transitions
 - general: General questions that don't fit the above categories
