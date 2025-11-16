@@ -5,7 +5,7 @@ import argparse
 import os
 from pathlib import Path
 from langgraph_codegen.gen_graph import (
-    gen_graph, gen_nodes, gen_state, 
+    gen_graph, gen_nodes, gen_state,
     gen_conditions, validate_graph, get_example_path,
     parse_graph_spec, process_node, transform_graph_spec
 )
@@ -14,7 +14,6 @@ from rich import print as rprint
 from rich.syntax import Syntax
 import shutil
 from typing import List, Set, Optional
-from langgraph_codegen.repl import GraphDesignREPL
 from collections import namedtuple
 from typing_extensions import TypedDict
 
@@ -312,12 +311,10 @@ def init_state(state_class) -> dict:
 def main():
     print(f"LangGraph CodeGen {version}")
     parser = argparse.ArgumentParser(description="Generate LangGraph code from graph specification")
-    
-    # repl and code display options
-    parser.add_argument('-i', '--repl', action='store_true', 
-                       help='Start interactive graph design REPL', dest='interactive')
+
+    # code display options
     parser.add_argument('-l', '--line-numbers', action='store_true', help='Show line numbers in generated code')
-    
+
     # Add the options
     parser.add_argument('--list', action='store_true', help='List available example graphs')
     parser.add_argument('--graph', action='store_true', help='Generate graph code')
@@ -332,28 +329,6 @@ def main():
     parser.add_argument('graph_file', nargs='?', help='Path to the graph specification file or folder')
 
     args = parser.parse_args()
-
-    # Handle REPL mode - now requires graph_file
-    if args.interactive:
-        if not args.graph_file:
-            print(f"{Fore.RED}Error: Interactive mode requires a graph file{Style.RESET_ALL}")
-            sys.exit(1)
-            
-        # Get the graph file content
-        example_path = get_example_path(args.graph_file)
-        file_path = example_path if example_path else args.graph_file
-        print(f"Using graph file: {file_path}")
-        try:
-            with open(file_path, 'r') as f:
-                graph_spec = f.read()
-        except FileNotFoundError:
-            print(f"{Fore.RED}Error: File not found: {args.graph_file}{Style.RESET_ALL}")
-            print(f"{Fore.YELLOW}Use --list-examples to see available examples{Style.RESET_ALL}")
-            sys.exit(1)
-            
-        repl = GraphDesignREPL(args.graph_file, graph_spec, print_python_code)
-        repl.run()
-        return
 
     if args.list:
         list_examples()
@@ -498,7 +473,7 @@ from langchain_core.runnables.config import RunnableConfig
                 print(f"Searching for node functions in {python_files}")
                 found_functions = find_functions_in_files(node_functions, python_files)
 
-                print(f"{Fore.BLUE}Found functions: {", ".join([ff.function_name for ff in found_functions])}{Style.RESET_ALL}")
+                print(f"{Fore.BLUE}Found functions: {', '.join([ff.function_name for ff in found_functions])}{Style.RESET_ALL}")
                 print(f"Searching for state class '{state_class}' in {python_files}")
                 state_class_file = find_class_in_files(state_class, python_files)
                 if state_class_file:
