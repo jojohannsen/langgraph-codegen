@@ -1,0 +1,32 @@
+# the GraphSpecification saves the following information:
+# - current graph line
+# - current context
+# - the name of the State class
+# - a list of fields that go with the State, each field has a name and data type
+# - start node name
+# - list of transitions from one node to another node
+# - list of transitions from a node to a router function
+# - list of transitions from a node to a worker function
+# - a list of router functions, each with a name and a list of destination nodes
+# - a list of worker functions, each with a name, state field providing data
+# 
+GraphSpecification -> ask_graph_file
+# ask human for name of graph_file
+ask_graph_file -> read_graph_file
+# we read the graph file into a string, the state holds a generator that yields (line, context) tuples
+read_graph_file -> process_state_line
+# reads the first tuple from the generator into state current_line, current_context
+# the 'line' contains the name of the State class as the first word of line
+process_state -> validate_start_line
+# 'line' content:   StateClassName -> first_node
+validate_start_line -> 
+process_star
+process_start_node -> process_next_graph_node
+# reads the next (line, context) tuple
+# Example:   node_x -> node_y
+#   we add node_x to node_y to state transitions
+# Example:   node_x -> node_y, node_z, node_q
+#   we add 3 state transitions: node_x to node_y, node_x to node_z, and node_x to node_q
+# Example:   node_a, node_b -> node_c
+#   we add 2 state transitions:  node_a to node_c and node_b to node_c
+process_next_graph_node 

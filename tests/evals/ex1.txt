@@ -1,0 +1,4 @@
+# invoke with a name
+Exercise_1_State -> compliment
+# compliment the person with the name, save it in state
+compliment -> END

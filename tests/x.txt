@@ -1,0 +1,11 @@
+START(State)
+  => generate_joke
+generate_joke
+  check_punchline_improve_joke => improve_joke
+# CONDITION: check_punchline_improve_joke = lambda state: check_punchline(state) == 'improve_joke'
+  check_punchline_END => END
+# CONDITION: check_punchline_END = lambda state: check_punchline(state) == 'END'
+improve_joke
+  true_fn => polish_joke
+polish_joke
+  true_fn => END

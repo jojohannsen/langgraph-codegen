@@ -1,0 +1,31 @@
+NODE: research_node
+CONDITION: should_make_chart. Result: False
+CONDITION: should_call_tool. Result: True
+
+    {'research_node': {'nodes_visited': 'research_node', 'counter': 1}}
+
+NODE: tool_node
+CONDITION: back_to_researcher. Result: False
+CONDITION: back_to_chart. Result: True
+
+    {'tool_node': {'nodes_visited': 'tool_node', 'counter': 2}}
+
+NODE: chart_node
+CONDITION: should_call_researcher. Result: False
+CONDITION: should_call_tool. Result: True
+
+    {'chart_node': {'nodes_visited': 'chart_node', 'counter': 3}}
+
+NODE: tool_node
+CONDITION: back_to_researcher. Result: True
+
+    {'tool_node': {'nodes_visited': 'tool_node', 'counter': 4}}
+
+NODE: research_node
+CONDITION: should_make_chart. Result: False
+CONDITION: should_call_tool. Result: False
+
+    {'research_node': {'nodes_visited': 'research_node', 'counter': 5}}
+
+DONE STREAMING, final state:
+StateSnapshot(values={'nodes_visited': ['research_node', 'tool_node', 'chart_node', 'tool_node', 'research_node'], 'counter': 5}, next=(), config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1f09734c-5cb7-6f18-8005-527157708107'}}, metadata={'source': 'loop', 'step': 5, 'parents': {}}, created_at='2025-09-21T21:48:56.102681+00:00', parent_config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1f09734c-5cb6-6c80-8004-25ec2aa4857e'}}, tasks=(), interrupts=())

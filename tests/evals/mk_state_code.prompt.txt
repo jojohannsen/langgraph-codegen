@@ -1,0 +1,312 @@
+
+This document describes a Graph Specification for a graph using the langgraph framework. 
+The language is specifies direct edges, branching, and even parallel graph workflows by means of a compact text format.
+
+This language is especially useful for outlining multi-step, interactive, or conditional workflows, such as chatbots or data processors, which can then be compiled into working Python code using langgraph.
+
+## Key Components
+A graph specification consists of lines that define nodes, how they connect, and special interpreter instructions. The language is line-oriented, with conventions for comments, node and state naming, and graph flow.
+
+The key components of this graph specification language are:
+- **State classes**: define the data available during graph execution
+- **Node Functions**: perform operations and update state
+- **Edges**: define transitions between nodes (with optional parallelism or conditionals)
+- **Worker and Routing Functions**: support for more complex flows
+
+
+<SYNTAX>
+- **Comments:** Lines starting with `#` are ignored.
+- **Transitions:** The format is `[from_node] -> [to_node]`, where both sides are names; comma-separated names allow multiple sources or destinations.
+- **Parentheses:** On the right of `->`, parentheses indicate a *routing function* or *worker node* (see later sections).
+- **Names:** State class, node function, worker, and routing function names should be valid Python identifiers, and unique in context (e.g., no routing function can have the same name as a node function).
+
+Whitespace does not affect meaning unless embedded in names, which is discouraged.
+
+</SYNTAX>
+
+<STATE_CLASS>
+The State Class is the central data structure that holds information as the graph executes. Its name is always the first word of the **first non-comment line** of the graph. It is a Python class (often a pydantic model) and fields within it correspond to information nodes consume or produce.
+
+Example:
+```
+MyState -> input_node
+```
+Here, `MyState` is the State Class.
+
+The State will be passed to node and routing functions, and its contents updated as processing continues.
+
+</STATE_CLASS>
+
+<NODE_FUNCTIONS>
+**Node functions** are the core computational elements in each step of the graph. All lines (except for the first and comments) have their **first word** as the node function name.
+
+Node functions:
+- Take the State (e.g., `state: MyState`) as their primary argument
+- Return an update for the State
+- Correspond to the function names in the specification
+
+Example:
+```
+input_node -> process_node
+```
+Here, `input_node` and `process_node` are node functions.
+
+Python signature example:
+```python
+def input_node(state: MyState) -> Dict[str, Any]:
+    # process/use state, return updates
+    ...
+```
+
+</NODE_FUNCTIONS>
+
+<EDGES_AND_TRANSITIONS>
+**Edges** represent transitions between nodes. The arrow `->` connects a node (or nodes) to successor node(s).
+
+Patterns:
+- **Simple transition:**  
+  `node1 -> node2`
+- **Multiple destinations (parallel):**  
+  `node1 -> node2, node3`
+- **Multiple sources:**  
+  `node1, node4 -> node5`
+
+Guidelines:
+- If multiple destinations are specified, after the node completes, all listed nodes are started in parallel.
+- Multiple sources indicate those nodes independently and unconditionally transition to the same destination.
+
+</EDGES_AND_TRANSITIONS>
+
+<PARALLEL_EXECUTION>
+Parallel execution lets you fork the flow into multiple nodes. When the right of `->` contains a comma-separated list, all those nodes are spawned simultaneously.
+
+Example:
+```
+get_topic -> story, joke, poem
+```
+All three are run in parallel.
+
+Multiple sources also allow multiple nodes to converge on a single node:
+```
+story, joke, poem -> aggregator
+```
+
+</PARALLEL_EXECUTION>
+
+<WORKER_NODES>
+**Worker Nodes** are special nodes meant to process entries from a list field in the State concurrently. The syntax on the right-hand side is `worker_node(State.field)`.
+
+- The worker function takes a single **element** from the State's list field, **not** the entire state.
+- Each worker operates independently, and their results are collected into a `processed_<field>` list.
+
+Example:
+```
+first_node -> worker_node(MyState.ideas)
+```
+
+If `MyState.ideas` is a list of ideas, worker_node will be executed for each item, with updates returned that are aggregated into `MyState.processed_ideas`.
+
+Worker function example:
+```python
+def worker(field_value: str, *, config: Optional[RunnableConfig] = None) -> Dict[str, Any]:
+    # field_value is one idea from the ideas list
+    result = ...
+    return {{ "processed_ideas": [result] }}
+```
+
+**Note:** The processed field type **must be**  
+`Annotated[list[<field type>], operator.add]`.
+</WORKER_NODES>
+
+<ROUTING_FUNCTIONS>
+Routing functions (or conditional edges) allow dynamic branching. Syntax:  
+`some_node -> routing_function(destination1, destination2[, END])`
+
+- The routing function is **not** a node function, and must have a unique name.
+- It takes State as input and returns the name of the next node (or END).
+- If `END` is specified, the graph can terminate here.
+
+Example:
+```
+ask_for_another -> tell_another(tell_joke, END)
+```
+
+Routing function example:
+```python
+def tell_another(state: JokesterState):
+    if should_tell_another(state):
+        return 'tell_joke'
+    else:
+        return 'END'
+```
+</ROUTING_FUNCTIONS>
+
+<SPECIAL_KEYWORDS>
+- **END**: A special keyword representing early termination or the conclusion of the graph.
+- **START**: If used, indicates the explicit beginning of the graph (optional; some frameworks infer this).
+
+Reserved names like `END` should not be used as a node name.
+
+</SPECIAL_KEYWORDS>
+
+<FULL_EXAMPLES>
+#### Example 1: Tell Jokes
+
+```
+JokesterState -> get_joke_topic
+# first we ask for topic
+get_joke_topic -> tell_joke
+# then we generate a joke, and display it
+tell_joke -> ask_for_another
+# then we ask user if they want another joke, we route based on that result
+ask_for_another -> tell_another(tell_joke, END)
+```
+
+**Python Graph Builder:**
+```python
+from langgraph.graph import START, END, StateGraph
+
+builder_jokester = StateGraph(JokesterState)
+builder_jokester.add_node('get_joke_topic', get_joke_topic)
+builder_jokester.add_node('tell_joke', tell_joke)
+builder_jokester.add_node('ask_for_another', ask_for_another)
+builder_jokester.add_edge(START, 'get_joke_topic')
+builder_jokester.add_edge('get_joke_topic', 'tell_joke')
+builder_jokester.add_edge('tell_joke', 'ask_for_another')
+def ask_for_another(state: JokesterState):
+    if tell_another_tell_joke(state):
+        return 'tell_joke'
+    elif tell_another_END(state):
+        return 'END'
+    return 'END'
+ask_for_another_conditional_edges = {{ 'tell_joke': 'tell_joke', 'END': END }}
+builder_jokester.add_conditional_edges('ask_for_another', ask_for_another, ask_for_another_conditional_edges)
+```
+
+---
+
+#### Example 2: Parallel Execution
+
+```
+State -> get_topic
+get_topic -> story, joke, poem
+# generate a story, joke, and poem based on topic
+story, joke, poem -> aggregator
+# combine the results and end
+aggregator -> END
+```
+
+**Python Graph Builder:**
+```python
+from langgraph.graph import START, END, StateGraph
+
+builder_parallelization = StateGraph(State)
+builder_parallelization.add_node('get_topic', get_topic)
+builder_parallelization.add_node('story', story)
+builder_parallelization.add_node('joke', joke)
+builder_parallelization.add_node('poem', poem)
+builder_parallelization.add_node('aggregator', aggregator)
+builder_parallelization.add_edge(START, 'get_topic')
+builder_parallelization.add_edge('get_topic', 'story')
+builder_parallelization.add_edge('get_topic', 'joke')
+builder_parallelization.add_edge('get_topic', 'poem')
+builder_parallelization.add_edge('story', 'aggregator')
+builder_parallelization.add_edge('joke', 'aggregator')
+builder_parallelization.add_edge('poem', 'aggregator')
+builder_parallelization.add_edge('aggregator', END)
+```
+
+---
+
+#### Example 3: Worker Nodes
+
+```
+MyState -> first_node
+# first node generates a few ideas about natural places to visit
+first_node -> worker_node(MyState.ideas)
+# the worker node generates a short phrase representing that place
+worker_node -> evaluator
+# the evaluator generates the best idea from those ideas based on how fun a place it is to see
+evaluator -> END
+```
+
+**MyState Example:**
+```python
+class MyState(BaseModel):
+    ideas: list[str] = Field(default=[], description="List of ideas about natural places to visit")
+    processed_ideas: Annotated[list[str], operator.add]
+```
+
+**Worker function:**
+```python
+def worker(field_value: str, *, config: Optional[RunnableConfig] = None) -> Dict[str, Any]:
+    result = ...
+    return {{ "processed_ideas": [result] }}
+```
+</FULL_EXAMPLES>
+
+<PATTERNS_AND_PITFALLS>
+- **Node/Worker/Routing function confusion:** Node functions take *State*, workers take one element from a *list field* in State, routing functions also take State and return a destination node name (string).
+- **Field types:** processed fields for workers must match `Annotated[list[<field type>], operator.add]`.
+- **END assignment:** Ensure 'END' is not used as a node name.
+- **Parallelism:** Remember that multiple destinations after `->` cause parallel execution, but multiple sources just mean independent transitions.
+- **Unique names:** Routing and node functions must not collide in name.
+
+</PATTERNS_AND_PITFALLS>
+
+<PYTHON_MAPPING>
+The Python mapping uses the `StateGraph` API:
+- Each node in your graph spec corresponds to a Python function and an added node in the builder.
+- Use `add_node` for each function, and `add_edge` for each `->` transition.
+- Conditional/routing edges are represented with `add_conditional_edges`.
+- For worker nodes, ensure your processed field and worker functions conform to signature requirements.
+
+You can automate code generation from the spec, or use it as a human-readable design document.
+
+</PYTHON_MAPPING>
+
+
+Here is the graph specification:
+
+<GRAPH_SPEC>
+# invoke with a name
+Exercise_1_State -> compliment
+# compliment the person with the name, save it in state
+compliment -> END
+
+</GRAPH_SPEC>
+
+Based on this graph specification, we have developed the following  design document for the State class needed for this graph:
+
+<STATE_SPEC>
+# Exercise_1_State Class Specification
+
+## State Class Name
+
+`Exercise_1_State`
+
+## State Fields
+
+### 1. name
+- **Type:** `str`
+- **Description:** The name of the person to receive a compliment. This value is provided when invoking the process.
+
+### 2. compliment_text
+- **Type:** `str`
+- **Description:** The generated compliment for the person, created using their name and saved in state during the `compliment` node.
+</STATE_SPEC>
+
+Please write the python code based on this specification, put in file 'state_code.py'
+
+Indicate clearly at the top of the file that it was generated by claude-3-7-sonnet-latest
+
+Make concise descriptive names for each field in the State, and do not use an function name as a field name.
+
+Only generate the data fields, and use the format like:
+
+field_name: Optional[str] = Field(description="...
+
+Do not generate any methods, only fields.  Give all fields default values as specified in the STATE_SPEC.
+When unsure, give default value None.
+
+Only generate fields for the data we ask for, or the data we generate, nothing else.

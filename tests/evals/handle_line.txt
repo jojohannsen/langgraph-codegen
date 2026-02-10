@@ -1,0 +1,18 @@
+# graph is invoked with 'current_line' and 'graph_comments' (so keep these in State)
+LineState -> process_line
+# we process both LHS and RHS, set these in state based on line in form:  LHS -> RHS
+process_line -> process_LHS, process_RHS
+# LHS format is either a single node name, e.g. 'node_1'  or a comma separated list, e.g. 'node_1,node_2,node_3'
+# we set lhs_nodes in state
+process_LHS -> add_transitions
+# RHS format is one of the following:
+#   'node_1' -- a single node destination
+#   'node_1,node_2' -- a comma separated list of node destinations
+#   'router_fn(node_1,END)' -- a router function that decides which node is the actual destination
+#   'worker_fn(State.field_name)' -- a worker node destination
+# based on this, we set in state rhs_nodes, rhs_router, rhs_worker
+process_RHS -> add_transitions
+# if we have rhs_nodes, add transition between all lhs_nodes and all rhs_nodes
+# if we have an rhs_router, add a conditional transition between the lhs_nodes and the router function
+# if we have an rhs_worker, add a transition between the lhs_nodes and the rhs_worker
+add_transitions -> END

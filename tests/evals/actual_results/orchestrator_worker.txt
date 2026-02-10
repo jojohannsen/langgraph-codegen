@@ -1,0 +1,16 @@
+
+Graph Validation Result:
+    is_valid: True
+    validation_messages: []
+    orphan_source_nodes: set()
+    orphan_dest_nodes: set()
+Graph State:
+    state_class_name: State
+    start_field: None
+Nodes:
+    start_node: orchestrator
+    source_nodes: ['orchestrator', 'synthesizer', 'worker']
+    dest_nodes: ['END', 'orchestrator', 'synthesizer', 'worker']
+    worker_nodes: [('worker', 'State', 'sections')]
+Conditional Edges:
+    router_functions: []

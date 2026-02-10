@@ -1,6 +1,0 @@
-START(SomeState) => planner
-planner => dataset_generator, search_query_definer
-search_query_definer => knowledge_query
-dataset_generator, knowledge_query => summary_writer
-summary_writer => exit
-exit => END

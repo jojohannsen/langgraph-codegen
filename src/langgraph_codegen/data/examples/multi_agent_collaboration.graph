@@ -1,17 +1,6 @@
 # Multiple agents updating same State model
-START(AgentState) => research_node
+START -> research_node
 
-research_node
-  should_make_chart => chart_node
-  should_call_tool => tool_node
-  => END
-
-chart_node
-  should_call_researcher => research_node
-  should_call_tool => tool_node
-  => END
-
-tool_node
-  back_to_researcher => research_node
-  back_to_chart => chart_node
-  => END
+research_node -> determine_next_node(chart_node, tool_node, END)
+chart_node -> needs_research(research_node, tool_node, END)
+tool_node -> go_back(research_node, chart_node, END)

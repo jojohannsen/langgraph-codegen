@@ -1,0 +1,10 @@
+# RAG without LCEL
+START(AgentState) => get_docs
+# retrieve documents from the vector database
+get_docs => format_docs
+# format the documents into text so they can be used in prompt
+format_docs => format_prompt
+# format the documents into a prompt
+format_prompt => generate
+# generate a response using the formatted prompt
+generate => END

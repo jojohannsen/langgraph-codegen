@@ -1,0 +1,16 @@
+
+Graph Validation Result:
+    is_valid: True
+    validation_messages: []
+    orphan_source_nodes: set()
+    orphan_dest_nodes: set()
+Graph State:
+    state_class_name: State
+    start_field: None
+Nodes:
+    start_node: generate_joke
+    source_nodes: ['generate_joke', 'improve_joke', 'polish_joke']
+    dest_nodes: ['END', 'generate_joke', 'improve_joke', 'polish_joke']
+    worker_nodes: []
+Conditional Edges:
+    router_functions: [('check_punchline', ('improve_joke', 'END'))]
