@@ -26,8 +26,5 @@ setup(
             'lgcodegen=langgraph_codegen.lgcodegen:main',
         ],
     },
-    install_requires=[
-        'colorama>=0.4.6',
-        'rich>=13.3.1',
-    ],
+    install_requires=[],
 )

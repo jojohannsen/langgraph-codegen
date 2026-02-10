@@ -1,5 +1,3 @@
-from colorama import Fore, Style
-
 try:
     # Try installed package first
     from langgraph_codegen.gen_graph import gen_graph, gen_state, parse_graph_spec, validate_graph

@@ -1,15 +1,11 @@
-import re
 import random
 import sys
 from textwrap import dedent
 from typing import Dict, Any, Optional, Union
 from pathlib import Path
 import os
-from colorama import Fore, Style
-
 from langgraph_codegen.graph import Graph
 
-ERROR_MISSING_IMPORTS = "Missing required imports for graph compilation"
 ERROR_START_NODE_NOT_FOUND = "START node not found at beginning of graph specification"
 
 def in_parentheses(s):
@@ -32,9 +28,14 @@ def transform_graph_spec(graph_spec: str) -> str:
         
         if not line or line[0] in ["-", "/"]:
             continue
-        if ("=>" in line or "->" in line) and state_class_name is None:
+        if ("=>" in line or "->" in line or "→" in line) and state_class_name is None:
             state_class_name = in_parentheses(line) if "(" in line else line.strip().split()[0]
-            start_node_name = line.split("=>")[1].strip() if "=>" in line else line.split("->")[1].strip()
+            if "=>" in line:
+                start_node_name = line.split("=>")[1].strip()
+            elif "->" in line:
+                start_node_name = line.split("->")[1].strip()
+            elif "→" in line:
+                start_node_name = line.split("→")[1].strip()
             transformed_lines.append(f"START({state_class_name})")
             transformed_lines.append(f"  => {start_node_name}")
             continue
@@ -46,23 +47,25 @@ def transform_graph_spec(graph_spec: str) -> str:
         # with that second line repeated for each parameter of fn_name
         
         # first check if line is in format:  node_name -> fn_name(node_name2, node_name3, END)
-        if "->" in line:
-            node_name, destinations = line.split("->")
+        if "->" in line or "→" in line:
+            # Determine which arrow type to use for splitting
+            arrow = "->" if "->" in line else "→"
+            node_name, destinations = line.split(arrow)
             if "(" in line:
                 # if fn call parameter is {state_class_name}.{field_name}, we need to extract that
                 fn_params = line.split("(")[1].split(")")[0].strip()
-                fn_name = line.split("->")[1].split("(")[0].strip()
+                fn_name = line.split(arrow)[1].split("(")[0].strip()
                 # this would be exactly 1 parameter, in that format
                 if fn_params.startswith(state_class_name):
                     iterable_field_name = fn_params.split(".")[1]
+                    assignment_function_name = f"assign_workers_{fn_name}"
                     transformed_lines.append(f"{node_name}")
-                    transformed_lines.append(f"  true_fn => SEND({iterable_field_name})")
-                    # write the send list as code, it looks like, append this as a :
-                    # "SEND: [ {fn_name}(s) for s in state['{iterable_field_name}'] ]"
-                    transformed_lines.append(f"# SEND: [ {fn_name}(s) for s in state['{iterable_field_name}'] ]")
+                    transformed_lines.append(f"  {assignment_function_name} => {fn_name}")
+                    # Store the worker assignment info for later code generation
+                    transformed_lines.append(f"# WORKER_ASSIGNMENT: {assignment_function_name}({iterable_field_name}) -> {fn_name}")
                 else:
-                    node_name = line.split("->")[0].strip()
-                    fn_name = line.split("->")[1].split("(")[0].strip()
+                    node_name = line.split(arrow)[0].strip()
+                    fn_name = line.split(arrow)[1].split("(")[0].strip()
                     fn_params = line.split("(")[1].split(")")[0].strip()
                     transformed_lines.append(f"{node_name}")
                     for fn_param in fn_params.split(","):
@@ -77,8 +80,10 @@ def transform_graph_spec(graph_spec: str) -> str:
                 destinations = [d.strip() for d in destinations.split(",")]
                 for destination in destinations:
                     transformed_lines.append(f"  true_fn => {destination}")
-        elif "=>" in line and not line[0].isspace():
-            parts = [p.strip() for p in line.split("=>")]
+        elif ("=>" in line or "→" in line) and not line[0].isspace():
+            # Determine which arrow type to use for splitting
+            arrow = "=>" if "=>" in line else "→"
+            parts = [p.strip() for p in line.split(arrow)]
             if parts[0]:
                 # parts[0] might be a comma separated list of node names
                 node_names = [n.strip() for n in parts[0].split(",")]
@@ -93,18 +98,7 @@ def transform_graph_spec(graph_spec: str) -> str:
     return "\n".join(transformed_lines)
 
 
-def parse_string(input_string):
-    pattern = r"\[(\w+)\((\w+) in (\w+)\)\]"
-    match = re.match(pattern, input_string)
-
-    if match:
-        function, var_name, state_field = match.groups()
-        return function, var_name, state_field
-    else:
-        raise ValueError("String format is incorrect")
-
-
-def parse_graph_spec(graph_spec):
+def parse_graph_spec(graph_spec, state_class_name=None):
     # transform graph into a uniform format
     # node_name
     #   => destination
@@ -122,7 +116,7 @@ def parse_graph_spec(graph_spec):
         line = line.strip()
         if not line or line[0] in ["#", "-", "/"]:
             continue
-
+        
         if "=>" in line:
             if line.startswith("=>"):
                 condition = TRUE_FN
@@ -142,6 +136,8 @@ def parse_graph_spec(graph_spec):
             current_node = node_info[0].strip()
             start_node = current_node
             state = node_info[1].strip(")")
+            if state_class_name:
+                state = state_class_name
             graph[current_node] = {"state": state, "edges": []}
         else:
             current_node = line
@@ -161,8 +157,10 @@ def get_routing_function_name_from_spec(graph_spec, node_name):
     """
     for line in graph_spec.splitlines():
         line = line.split('#')[0].strip()  # Remove comments
-        if '->' in line and line.startswith(node_name):
-            parts = line.split('->')
+        if ('->' in line or '→' in line) and line.startswith(node_name):
+            # Determine which arrow type to use for splitting
+            arrow = '->' if '->' in line else '→'
+            parts = line.split(arrow)
             if len(parts) == 2:
                 destination_part = parts[1].strip()
                 if '(' in destination_part:
@@ -251,18 +249,6 @@ def mk_conditional_edges(builder_graph, node_name, node_dict, graph_spec=None):
             
             if destination == "END":
                 edge_lines.append(f"{builder_graph}.add_edge('{node_name}', END)")
-            elif "[" in destination:  # parallel output destinations
-                function, var_name, state_field = parse_string(destination)
-                # Use the original graph spec to get the function name if available
-                if graph_spec:
-                    routing_function_name = get_routing_function_name_from_spec(graph_spec, node_name)
-                else:
-                    routing_function_name = get_routing_function_name(node_name, edges)
-                edge_lines.extend([
-                    f"def {routing_function_name}(state):",
-                    f"    return [Send('{function}', {{'{var_name}': s}}) for s in state['{state_field}']]",
-                    f"{builder_graph}.add_conditional_edges('{node_name}', {routing_function_name}, ['{function}'])"
-                ])
             elif node_name == "START":
                 edge_lines.append(f"{builder_graph}.add_edge(START, '{destination}')")
             else:
@@ -306,13 +292,10 @@ def mk_conditional_edges(builder_graph, node_name, node_dict, graph_spec=None):
         return f"{node_name}_conditional_edges = {{ {', '.join(edge_mappings)} }}\n{builder_graph}.add_conditional_edges('{node_name}', {routing_function_name}, {node_name}_conditional_edges)\n"
 
 
-def true_fn(state):
-    return True
-
 def gen_node(node_name, state_type, single_node=False):
     imports = """# GENERATED CODE: node function for {node_name}
 from typing import Dict, TypedDict, Annotated, Optional
-from langgraph.graph import StateGraph, Graph
+from langgraph.graph import StateGraph
 from langchain_core.messages.tool import ToolMessage
 from langchain_core.runnables.config import RunnableConfig
 
@@ -372,7 +355,12 @@ def gen_nodes(graph: Union[Graph, dict], found_functions: list[str] = None):
             node_code = process_node(node_name, node_data, found_functions, graph, state_type)
             if node_code:
                 nodes.append(node_code)
-    return "\n".join(nodes)
+    
+    if nodes:
+        header = "# Node Functions"
+        return header + "\n" + "\n".join(nodes)
+    else:
+        return "# This graph has no node functions"
 
 def find_conditions(node_dict):
     edges = node_dict["edges"]
@@ -413,12 +401,132 @@ def human_bool(condition):
     for node_name, node_dict in graph.items():
         for condition in find_conditions(node_dict):
             conditions.append(gen_condition(condition, state_type, human))
-    result = "# GENERATED CODE -- used for graph simulation mode"
-    return result + "\n".join(conditions) if conditions else "# This graph has no conditional edges"
+    result = "# Conditional Edge Functions\n# Functions that determine which path to take in the graph"
+    return result + "\n".join(conditions) if conditions else "# Conditional Edge Functions: None"
+
+def find_worker_functions(graph_spec):
+    """Extract Worker Functions from the original graph specification.
+    
+    Worker Functions are functions with a single parameter like:
+    orchestrator -> llm_call(State.sections)
+    """
+    worker_functions = []
+    for line in graph_spec.splitlines():
+        line = line.split('#')[0].strip()  # Remove comments
+        if ('->' in line or '→' in line) and '(' in line and ')' in line:
+            # Determine which arrow type to use for splitting
+            arrow = '->' if '->' in line else '→'
+            parts = line.split(arrow)
+            if len(parts) == 2:
+                destination_part = parts[1].strip()
+                if '(' in destination_part:
+                    func_name = destination_part.split('(')[0].strip()
+                    params_part = destination_part.split('(')[1].split(')')[0].strip()
+                    
+                    if params_part:
+                        param_count = len([p.strip() for p in params_part.split(',') if p.strip()])
+                        if param_count == 1:
+                            # This is a Worker Function
+                            param = params_part.strip()
+                            worker_functions.append((func_name, param))
+    return worker_functions
+
+def gen_worker_function(func_name, param, state_type):
+    """Generate a Worker Function implementation.
+    
+    For example: llm_call(State.sections) becomes a function that processes
+    individual items and returns a single update.
+    """
+    # Extract field name from State.field pattern
+    if '.' in param and param.startswith(state_type):
+        field_name = param.split('.')[1]
+        return f"""
+def {func_name}(item):
+    \"\"\"Worker function that processes individual {field_name} items.\"\"\"
+    # TODO: Implement your {func_name} logic here
+    # This function receives a single item from state['{field_name}']
+    # and should return a dictionary with updates
+    return {{"result": f"processed {{item}}"}}
+"""
+    else:
+        # For other parameter patterns
+        return f"""
+def {func_name}(param):
+    \"\"\"Worker function that processes {param}.\"\"\"
+    # TODO: Implement your {func_name} logic here
+    return {{"result": f"processed {{param}}"}}
+"""
+
+def gen_worker_functions(graph_spec):
+    """Generate all Worker Function implementations."""
+    graph, start_node = parse_graph_spec(graph_spec)
+    state_type = graph[start_node]["state"]
+    
+    worker_functions = find_worker_functions(graph_spec)
+    if not worker_functions:
+        return "# This graph has no worker functions"
+    
+    result = "# Worker Function\n"
+    implementations = []
+    
+    for func_name, param in worker_functions:
+        implementations.append(gen_worker_function(func_name, param, state_type))
+    
+    return result + "\n".join(implementations)
+
+def find_assignment_functions(graph_spec):
+    """Extract Assignment Functions from the transformed graph specification.
+    
+    Assignment Functions coordinate work distribution to Worker Functions.
+    They look for WORKER_ASSIGNMENT comments in the transformed spec.
+    """
+    assignment_functions = []
+    for line in graph_spec.splitlines():
+        line = line.strip()
+        if line.startswith("# WORKER_ASSIGNMENT:"):
+            # Parse: # WORKER_ASSIGNMENT: assign_workers_llm_call(sections) -> llm_call
+            parts = line.replace("# WORKER_ASSIGNMENT:", "").strip()
+            assignment_part, worker_func = parts.split(" -> ")
+            assignment_func = assignment_part.split("(")[0].strip()
+            field_name = assignment_part.split("(")[1].split(")")[0].strip()
+            assignment_functions.append((assignment_func, field_name, worker_func))
+    return assignment_functions
+
+def gen_assignment_function(assignment_func, field_name, worker_func, state_type):
+    """Generate an Assignment Function implementation.
+    
+    For example: assign_workers_llm_call that distributes work to llm_call workers.
+    """
+    return f"""
+def {assignment_func}(state: {state_type}):
+    \"\"\"Assignment function that distributes {field_name} items to {worker_func} workers.\"\"\"
+    from langgraph.constants import Send
+    return [Send('{worker_func}', {{'item': item}}) for item in state['{field_name}']]
+"""
+
+def gen_assignment_functions(graph_spec):
+    """Generate all Assignment Function implementations."""
+    # First get the transformed spec to find WORKER_ASSIGNMENT comments
+    transformed_spec = transform_graph_spec(graph_spec)
+    
+    graph, start_node = parse_graph_spec(graph_spec)
+    state_type = graph[start_node]["state"]
+    
+    assignment_functions = find_assignment_functions(transformed_spec)
+    if not assignment_functions:
+        return "# This graph has no assignment functions"
+    
+    result = "# Assignment Functions\n# Functions that coordinate work distribution to worker functions"
+    implementations = []
+    
+    for assignment_func, field_name, worker_func in assignment_functions:
+        implementations.append(gen_assignment_function(assignment_func, field_name, worker_func, state_type))
+    
+    return result + "\n".join(implementations)
 
 def mock_state(state_class):
     result = f"""
-# GENERATED CODE: mock graph state
+# Graph State: {state_class}
 from typing import Annotated, TypedDict
 
 def add_str_to_list(a=None, b=""):
@@ -432,7 +540,7 @@ class {state_class}(TypedDict):
     nodes_visited: Annotated[list[str], add_str_to_list]
     counter: Annotated[int, add_int]
 
-def initial_state_{state_class}():
+def initialize_{state_class}():
     return {{ 'nodes_visited': [], 'counter': 0 }}
 """
     return result
@@ -453,7 +561,7 @@ def gen_graph(graph_name, graph_spec, compile_args=None):
     nodes_added = []
 
     # Generate the graph state, node definitions, and entry point
-    initial_comment = f"# GENERATED code, creates compiled graph: {graph_name}\n"
+    initial_comment = f"# Graph Builder: {graph_name}\n"
     graph_setup = ""
 
     state_type = graph[start_node]['state']
@@ -476,10 +584,10 @@ from langgraph.graph import MessageGraph"""
                 node_names = [n.strip() for n in node_name.split(",")]
                 for nn in node_names:
                     if nn not in nodes_added:
-                        nodes_added.extend(nn)
+                        nodes_added.append(nn)
                         graph_setup += f"{builder_graph}.add_node('{nn}', {nn})\n"
             elif node_name not in nodes_added:
-                nodes_added.extend(node_name)
+                nodes_added.append(node_name)
                 graph_setup += f"{builder_graph}.add_node('{node_name}', {node_name})\n"
     if start_node != "START":
         graph_setup += f"\n{builder_graph}.set_entry_point('{start_node}')\n\n"
@@ -536,8 +644,8 @@ def validate_graph(graph_spec: str) -> Dict[str, Any]:
             "The graph must begin with a START node definition, for example:\n"
             "START(State) => first_node"
         )
-        details.append(f"{Fore.RED}Found:{Style.RESET_ALL} {first_non_comment or 'No non-comment lines'}\n"
-                      f"{Fore.GREEN}Expected:{Style.RESET_ALL} START(<state_type>) => <first_node>")
+        details.append(f"Found: {first_non_comment or 'No non-comment lines'}\n"
+                      f"Expected: START(<state_type>) => <first_node>")
     
     try:
         if not errors:  # Only try to parse if no errors so far
@@ -555,8 +663,8 @@ def validate_graph(graph_spec: str) -> Dict[str, Any]:
                 else:
                     errors.append("START node has no destination")
                     solutions.append("Add a destination node after the START node using =>")
-                    details.append(f"{Fore.RED}Found:{Style.RESET_ALL} START node without destination\n"
-                                f"{Fore.GREEN}Expected:{Style.RESET_ALL} START(<state_type>) => <destination_node>")
+                    details.append(f"Found: START node without destination\n"
+                                f"Expected: START(<state_type>) => <destination_node>")
             
             # Set the actual start node (the destination of START)
             if start_node_dest:
@@ -569,8 +677,8 @@ def validate_graph(graph_spec: str) -> Dict[str, Any]:
                     if not node_data["edges"]:
                         errors.append(f"Node '{node_name}' has no outgoing edges")
                         solutions.append(f"Add at least one destination for node '{node_name}' using =>")
-                        details.append(f"{Fore.RED}Found:{Style.RESET_ALL} Node '{node_name}' without edges\n"
-                                    f"{Fore.GREEN}Expected:{Style.RESET_ALL} {node_name} => <destination>")
+                        details.append(f"Found: Node '{node_name}' without edges\n"
+                                    f"Expected: {node_name} => <destination>")
                     for edge in node_data["edges"]:
                         destination = edge["destination"]
                         condition = edge["condition"]
@@ -583,7 +691,7 @@ def validate_graph(graph_spec: str) -> Dict[str, Any]:
     except Exception as e:
         errors.append(str(e))
         solutions.append("Please check the graph specification syntax")
-        details.append(f"{Fore.RED}Error:{Style.RESET_ALL} {str(e)}")
+        details.append(f"Error: {str(e)}")
     
     # If we get here, there were errors
     return {
