@@ -715,9 +715,13 @@ def get_example_path(filename):
         import langgraph_codegen
         package_dir = Path(os.path.dirname(langgraph_codegen.__file__))
         if '.' not in filename:
-            filename = filename + '.graph'
+            filename = filename + '.lg'
         example_path = package_dir / 'data' / 'examples' / filename
-        
+
+        if example_path.exists():
+            return str(example_path)
+        filename = filename.replace('.lg', '.graph')
+        example_path = package_dir / 'data' / 'examples' / filename
         if example_path.exists():
             return str(example_path)
         filename = filename.replace('.graph', '.txt')

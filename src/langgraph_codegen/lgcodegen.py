@@ -12,11 +12,12 @@ from langgraph_codegen.gen_graph import (
 
 def main():
     parser = argparse.ArgumentParser(description='Generate LangGraph code from DSL specification')
-    parser.add_argument('input_file', help='Path to .graph or .txt DSL file')
+    parser.add_argument('input_file', help='Path to .lg, .graph, or .txt DSL file')
     parser.add_argument('--state', action='store_true', help='Generate only state class')
     parser.add_argument('--nodes', action='store_true', help='Generate only node functions')
     parser.add_argument('--graph', action='store_true', help='Generate only graph builder')
     parser.add_argument('--stdout', action='store_true', help='Print to stdout instead of writing files')
+    parser.add_argument('-o', '--output-dir', help='Output directory (default: basename of input file)')
     args = parser.parse_args()
 
     # Read input
@@ -61,10 +62,12 @@ def main():
             print(section)
             print()
     else:
+        output_dir = Path(args.output_dir) if args.output_dir else Path(basename)
+        output_dir.mkdir(parents=True, exist_ok=True)
         for name, code in sections.items():
-            filename = f"{basename}_{name}.py"
-            Path(filename).write_text(code + '\n')
-            print(f"Wrote {filename}")
+            filepath = output_dir / f"{basename}_{name}.py"
+            filepath.write_text(code + '\n')
+            print(f"Wrote {filepath}")
 
 
 if __name__ == '__main__':

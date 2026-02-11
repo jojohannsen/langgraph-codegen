@@ -1,76 +1,72 @@
 #!/bin/bash
-
-# Exit on error
 set -e
 
-# Enable command echoing
-#set -x
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+EXAMPLES_DIR="$SCRIPT_DIR/../src/langgraph_codegen/data/examples"
 
-# List of architectures to test
 architectures=(
-    "multi_agent_collaboration" 
-    "plan_and_execute" 
-    "rag" 
-    "react_agent" 
-    "simple" 
+    "multi_agent_collaboration"
+    "plan_and_execute"
+    "rag"
+    "react_agent"
+    "simple"
     "supervisor"
 )
 
 # Clean up previous results
-mkdir -p actual_results
-rm -f actual_results/*
+mkdir -p "$SCRIPT_DIR/actual_results"
+rm -f "$SCRIPT_DIR/actual_results"/*
 
-# Process each architecture
+TMPDIR=$(mktemp -d)
+trap "rm -rf $TMPDIR" EXIT
+
 for arch in "${architectures[@]}"; do
-    echo "Processing architecture: $arch"
-    
-    # Clean up previous generation
-    rm -rf "$arch"
-    
-    # Generate code
-    lgcodegen "$arch" --code --seed 42
-    
-    # Run the test
-    python "$arch/$arch.py" 12345 > "actual_results/$arch.txt"
-    
-    # Compare results while ignoring the first line
-    python compare_test_runs.py "expected_results/$arch.txt" "actual_results/$arch.txt"
+    echo "Testing: $arch"
 
-    # Test repl
-    cat commands | lgcodegen "$arch" -i > "actual_results/$arch.commands.txt"
-    diff -b <(tail -n +2 "expected_results/$arch.commands.txt") <(tail -n +2 "actual_results/$arch.commands.txt")
-    
-    # Verify required files exist
-    required_files=(
-        "$arch.py"
-        "${arch}_conditions.py"
-        "${arch}_graph.py"
-        "${arch}_nodes.py"
-        "$arch.txt"
-        "${arch}_dsl.txt"
-        "${arch}_main.py"
-        "${arch}_state.py"
-    )
-    
-    echo "Checking required files for $arch..."
-    missing_files=0
-    for file in "${required_files[@]}"; do
-	#echo "$arch/$file"
-        if [ ! -f "$arch/$file" ]; then
-            echo -e "\033[31mError: Missing required file: $arch/$file\033[0m"
-            missing_files=1
-        fi
-    done
-    
-    if [ $missing_files -eq 1 ]; then
-        echo -e "\033[31mError: Some required files are missing for $arch architecture!\033[0m"
+    # Find the example file (.lg, .graph, or .txt)
+    if [ -f "$EXAMPLES_DIR/$arch.lg" ]; then
+        input_file="$EXAMPLES_DIR/$arch.lg"
+    elif [ -f "$EXAMPLES_DIR/$arch.graph" ]; then
+        input_file="$EXAMPLES_DIR/$arch.graph"
+    elif [ -f "$EXAMPLES_DIR/$arch.txt" ]; then
+        input_file="$EXAMPLES_DIR/$arch.txt"
+    else
+        echo "Error: No example file found for $arch"
         exit 1
     fi
+
+    # Test 1: Generate files (into output subdirectory)
+    (cd "$TMPDIR" && lgcodegen "$input_file")
+
+    # Test 2: Verify 3 files exist in the output subdirectory
+    for suffix in state nodes graph; do
+        if [ ! -f "$TMPDIR/${arch}/${arch}_${suffix}.py" ]; then
+            echo "Error: Missing ${arch}/${arch}_${suffix}.py"
+            exit 1
+        fi
+    done
+
+    # Test 3: Verify files compile
+    for suffix in state nodes graph; do
+        python -c "compile(open('$TMPDIR/${arch}/${arch}_${suffix}.py').read(), '${arch}_${suffix}.py', 'exec')"
+    done
+
+    # Test 4: Capture stdout output and compare against expected
+    lgcodegen "$input_file" --stdout > "$SCRIPT_DIR/actual_results/$arch.txt"
+
+    if [ -f "$SCRIPT_DIR/expected_results/$arch.txt" ]; then
+        diff -b "$SCRIPT_DIR/expected_results/$arch.txt" "$SCRIPT_DIR/actual_results/$arch.txt" || {
+            echo "Error: Output mismatch for $arch"
+            exit 1
+        }
+    else
+        echo "  (no expected results file, skipping comparison)"
+    fi
+
+    # Clean up generated output directory
+    rm -rf "$TMPDIR/${arch}"
+
+    echo "  OK"
 done
 
-for arch in "${architectures[@]}"; do
-    echo "Cleanup architecture: $arch"
-    
-    # Clean up previous generation
-    rm -rf "$arch"
-done
+echo "All tests passed."
