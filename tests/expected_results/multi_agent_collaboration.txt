@@ -1,25 +1,144 @@
-NODE: research_node
-CONDITION: should_make_chart. Result: False
-CONDITION: should_call_tool. Result: True
 
-    {'research_node': {'nodes_visited': 'research_node', 'counter': 1}}
+# Graph State: START
+from typing import Annotated, TypedDict
 
-NODE: tool_node
-CONDITION: back_to_researcher. Result: False
-CONDITION: back_to_chart. Result: True
+def add_str_to_list(a=None, b=""):
+    return (a if a is not None else []) + ([b] if not isinstance(b, list) else b)
 
-    {'tool_node': {'nodes_visited': 'tool_node', 'counter': 2}}
+def add_int(a, b):
+    if b == 0: return 0
+    return b+1 if a==b else b
 
-NODE: chart_node
-CONDITION: should_call_researcher. Result: True
+class START(TypedDict):
+    nodes_visited: Annotated[list[str], add_str_to_list]
+    counter: Annotated[int, add_int]
 
-    {'chart_node': {'nodes_visited': 'chart_node', 'counter': 3}}
+def initialize_START():
+    return { 'nodes_visited': [], 'counter': 0 }
 
-NODE: research_node
-CONDITION: should_make_chart. Result: False
-CONDITION: should_call_tool. Result: False
 
-    {'research_node': {'nodes_visited': 'research_node', 'counter': 4}}
+# Node Functions
+def chart_node(state: START, *, config:Optional[RunnableConfig] = None):
+    print(f'NODE: chart_node')
+    return { 'nodes_visited': 'chart_node', 'counter': state['counter'] + 1 }
 
-DONE STREAMING, final state:
-StateSnapshot(values={'nodes_visited': ['research_node', 'tool_node', 'chart_node', 'research_node'], 'counter': 4}, next=(), config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1f012ffc-ac03-6b62-8004-495c2dcaabd5'}}, metadata={'source': 'loop', 'writes': {'research_node': {'nodes_visited': 'research_node', 'counter': 4}}, 'step': 4, 'parents': {}, 'thread_id': '1'}, created_at='2025-04-06T15:57:07.604154+00:00', parent_config={'configurable': {'thread_id': '1', 'checkpoint_ns': '', 'checkpoint_id': '1f012ffc-ac01-6fe2-8003-6a5cbe99854a'}}, tasks=())
+def research_node(state: START, *, config:Optional[RunnableConfig] = None):
+    print(f'NODE: research_node')
+    return { 'nodes_visited': 'research_node', 'counter': state['counter'] + 1 }
+
+def tool_node(state: START, *, config:Optional[RunnableConfig] = None):
+    print(f'NODE: tool_node')
+    return { 'nodes_visited': 'tool_node', 'counter': state['counter'] + 1 }
+
+
+import random
+
+def random_one_or_zero():
+    return random.choice([False, True])
+
+# Conditional Edge Functions
+# Functions that determine which path to take in the graph
+def determine_next_node_chart_node(state: START) -> bool:
+    result = random_one_or_zero()
+    print(f'CONDITION: determine_next_node_chart_node. Result: {result}')
+    return result
+
+
+def determine_next_node_tool_node(state: START) -> bool:
+    result = random_one_or_zero()
+    print(f'CONDITION: determine_next_node_tool_node. Result: {result}')
+    return result
+
+
+def determine_next_node_END(state: START) -> bool:
+    result = random_one_or_zero()
+    print(f'CONDITION: determine_next_node_END. Result: {result}')
+    return result
+
+
+def needs_research_research_node(state: START) -> bool:
+    result = random_one_or_zero()
+    print(f'CONDITION: needs_research_research_node. Result: {result}')
+    return result
+
+
+def needs_research_tool_node(state: START) -> bool:
+    result = random_one_or_zero()
+    print(f'CONDITION: needs_research_tool_node. Result: {result}')
+    return result
+
+
+def needs_research_END(state: START) -> bool:
+    result = random_one_or_zero()
+    print(f'CONDITION: needs_research_END. Result: {result}')
+    return result
+
+
+def go_back_research_node(state: START) -> bool:
+    result = random_one_or_zero()
+    print(f'CONDITION: go_back_research_node. Result: {result}')
+    return result
+
+
+def go_back_chart_node(state: START) -> bool:
+    result = random_one_or_zero()
+    print(f'CONDITION: go_back_chart_node. Result: {result}')
+    return result
+
+
+def go_back_END(state: START) -> bool:
+    result = random_one_or_zero()
+    print(f'CONDITION: go_back_END. Result: {result}')
+    return result
+
+
+# Graph Builder: multi_agent_collaboration
+from langgraph.graph import START, END, StateGraph
+from langgraph.checkpoint.memory import MemorySaver
+import sqlite3
+
+checkpoint_saver = MemorySaver()
+builder_multi_agent_collaboration = StateGraph(START)
+builder_multi_agent_collaboration.add_node('research_node', research_node)
+builder_multi_agent_collaboration.add_node('chart_node', chart_node)
+builder_multi_agent_collaboration.add_node('tool_node', tool_node)
+builder_multi_agent_collaboration.add_edge(START, 'research_node')
+def determine_next_node(state: START):
+    if determine_next_node_chart_node(state):
+        return 'chart_node'
+    elif determine_next_node_tool_node(state):
+        return 'tool_node'
+    elif determine_next_node_END(state):
+        return 'END'
+    return 'END'
+
+research_node_conditional_edges = { 'chart_node': 'chart_node', 'tool_node': 'tool_node', 'END': END }
+builder_multi_agent_collaboration.add_conditional_edges('research_node', determine_next_node, research_node_conditional_edges)
+
+def needs_research(state: START):
+    if needs_research_research_node(state):
+        return 'research_node'
+    elif needs_research_tool_node(state):
+        return 'tool_node'
+    elif needs_research_END(state):
+        return 'END'
+    return 'END'
+
+chart_node_conditional_edges = { 'research_node': 'research_node', 'tool_node': 'tool_node', 'END': END }
+builder_multi_agent_collaboration.add_conditional_edges('chart_node', needs_research, chart_node_conditional_edges)
+
+def go_back(state: START):
+    if go_back_research_node(state):
+        return 'research_node'
+    elif go_back_chart_node(state):
+        return 'chart_node'
+    elif go_back_END(state):
+        return 'END'
+    return 'END'
+
+tool_node_conditional_edges = { 'research_node': 'research_node', 'chart_node': 'chart_node', 'END': END }
+builder_multi_agent_collaboration.add_conditional_edges('tool_node', go_back, tool_node_conditional_edges)
+
+
+multi_agent_collaboration = builder_multi_agent_collaboration.compile(checkpointer=checkpoint_saver)
+
