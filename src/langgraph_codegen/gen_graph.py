@@ -700,34 +700,53 @@ def validate_graph(graph_spec: str) -> Dict[str, Any]:
         "details": "\n\n".join(details)
     }
 
+def list_examples():
+    """Return sorted list of available example names (no extensions)."""
+    import langgraph_codegen
+    examples_dir = Path(os.path.dirname(langgraph_codegen.__file__)) / 'data' / 'examples'
+    names = set()
+    for f in examples_dir.iterdir():
+        if f.suffix in ('.lg', '.graph', '.txt'):
+            names.add(f.stem)
+    return sorted(names)
+
+
 def get_example_path(filename):
     """Get the full path to an example file.
-    First checks for local graph_name/graph_name.txt file,
-    then falls back to package examples."""
+
+    Lookup order for a bare name like 'plan_and_execute':
+    1. ./plan_and_execute.lg, .graph, .txt (cwd with extensions)
+    2. ./plan_and_execute/plan_and_execute.lg, .graph, .txt (output folder)
+    3. Package data/examples/ with .lg, .graph, .txt
+    """
     try:
-        # First check for local graph_name/graph_name.txt
         base_name = filename.split('.')[0]
-        local_path = Path(base_name) / f"{base_name}.txt"
-        if local_path.exists():
-            return str(local_path)
-            
-        # If not found locally, check package examples
+        extensions = ['.lg', '.graph', '.txt']
+
+        # 1. Check cwd with extensions
+        for ext in extensions:
+            local_path = Path(f"{base_name}{ext}")
+            if local_path.exists():
+                return str(local_path)
+
+        # 2. Check output folder (basename/basename.ext)
+        for ext in extensions:
+            local_path = Path(base_name) / f"{base_name}{ext}"
+            if local_path.exists():
+                return str(local_path)
+
+        # 3. Check package examples
         import langgraph_codegen
         package_dir = Path(os.path.dirname(langgraph_codegen.__file__))
         if '.' not in filename:
-            filename = filename + '.lg'
-        example_path = package_dir / 'data' / 'examples' / filename
+            filename_with_ext = filename
+        else:
+            filename_with_ext = filename.split('.')[0]
+        for ext in extensions:
+            example_path = package_dir / 'data' / 'examples' / f"{filename_with_ext}{ext}"
+            if example_path.exists():
+                return str(example_path)
 
-        if example_path.exists():
-            return str(example_path)
-        filename = filename.replace('.lg', '.graph')
-        example_path = package_dir / 'data' / 'examples' / filename
-        if example_path.exists():
-            return str(example_path)
-        filename = filename.replace('.graph', '.txt')
-        example_path = package_dir / 'data' / 'examples' / filename
-        if example_path.exists():
-            return str(example_path)
         return None
     except Exception as e:
         print(f"Error finding example: {str(e)}", file=sys.stderr)
