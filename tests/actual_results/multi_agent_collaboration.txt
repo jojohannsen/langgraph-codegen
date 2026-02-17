@@ -13,7 +13,7 @@ class START(TypedDict):
     nodes_visited: Annotated[list[str], add_str_to_list]
     counter: Annotated[int, add_int]
 
-def initialize_START():
+def initialize_state():
     return { 'nodes_visited': [], 'counter': 0 }
 
 

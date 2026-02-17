@@ -540,7 +540,7 @@ class {state_class}(TypedDict):
     nodes_visited: Annotated[list[str], add_str_to_list]
     counter: Annotated[int, add_int]
 
-def initialize_{state_class}():
+def initialize_state():
     return {{ 'nodes_visited': [], 'counter': 0 }}
 """
     return result
@@ -771,3 +771,41 @@ def get_graph(graph_name: str) -> str:
         graph_spec = f.read()
         
     return gen_graph(graph_name.split('.')[0], graph_spec)
+
+
+def gen_main(basename, state_class):
+    """Generate a main.py entry point that runs the compiled graph."""
+    return f"""from {basename}_graph import {basename}
+from {basename}_state import initialize_state
+
+def main():
+    config = {{"configurable": {{"thread_id": "1"}}}}
+    initial_state = initialize_state()
+    result = {basename}.invoke(initial_state, config=config)
+    print(result)
+
+if __name__ == "__main__":
+    main()
+"""
+
+
+def gen_readme(basename, graph_spec, input_filename, folder_name=None):
+    """Generate a README.md with graph spec and run instructions."""
+    folder = folder_name or basename
+    return f"""# {basename}
+
+## Graph Specification
+
+From `{input_filename}`:
+
+```
+{graph_spec.strip()}
+```
+
+## Run
+
+```bash
+cd {folder}
+python main.py
+```
+"""

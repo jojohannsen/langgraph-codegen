@@ -8,7 +8,7 @@ from pathlib import Path
 from langgraph_codegen.gen_graph import (
     gen_graph, gen_nodes, gen_state,
     gen_conditions, gen_worker_functions, gen_assignment_functions,
-    find_worker_functions,
+    find_worker_functions, gen_main, gen_readme,
     parse_graph_spec, list_examples, get_example_path
 )
 
@@ -144,6 +144,15 @@ def main():
 
             filepath.write_text(code + '\n')
             print(f"Wrote {filepath}")
+
+        if generate_all:
+            main_path = output_dir / "main.py"
+            main_path.write_text(gen_main(basename, state_class) + '\n')
+            print(f"Wrote {main_path}")
+
+            readme_path = output_dir / "README.md"
+            readme_path.write_text(gen_readme(basename, graph_spec, input_path.name, output_dir.name) + '\n')
+            print(f"Wrote {readme_path}")
 
         if args.verify:
             verify_generated_files(output_dir, basename)
