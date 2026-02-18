@@ -15,6 +15,63 @@ def in_parentheses(s):
     else:
         return None
 
+
+def snake_to_state_class(name):
+    """Convert a snake_case (or hyphenated) name to CamelCaseState.
+
+    Examples:
+        bea_agent -> BeaAgentState
+        my-graph  -> MyGraphState
+        simple    -> SimpleState
+    """
+    name = name.replace('-', '_')
+    parts = [p for p in name.split('_') if p]
+    if not parts:
+        return "State"
+    return ''.join(p.capitalize() for p in parts) + 'State'
+
+
+def preprocess_start_syntax(graph_spec, graph_name):
+    """Normalise the first line of a graph spec to ``START(GeneratedName) => dest``.
+
+    Handles three cases:
+    1. Bare ``START -> node`` / ``START => node`` — injects generated class name.
+    2. Old ``ClassName -> node`` syntax — rewrites to ``START(GeneratedName) => node``
+       and replaces ``ClassName.`` references with ``GeneratedName.`` throughout.
+    3. ``START(Explicit) => node`` — returned unchanged.
+    """
+    lines = graph_spec.split('\n')
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped or stripped.startswith('#'):
+            continue
+        # First meaningful line
+        if not stripped.startswith('START'):
+            # Old ClassName -> syntax: e.g. "State -> orchestrator"
+            # Detect arrow and rewrite to START(GeneratedName) => destination
+            for arrow in ['->', '=>', '→']:
+                if arrow in stripped:
+                    old_class = stripped.split(arrow)[0].strip()
+                    destination = stripped.split(arrow)[1].strip()
+                    new_class = snake_to_state_class(graph_name)
+                    lines[i] = f'START({new_class}) => {destination}'
+                    # Replace OldClass. references with NewClass. in the rest of the spec
+                    if old_class != new_class:
+                        old_ref = old_class + '.'
+                        new_ref = new_class + '.'
+                        for j in range(i + 1, len(lines)):
+                            lines[j] = lines[j].replace(old_ref, new_ref)
+                    return '\n'.join(lines)
+            return graph_spec
+        if '(' in stripped:
+            # Already has parentheses — leave as-is
+            return graph_spec
+        # Bare START without parens — inject generated class name
+        state_class = snake_to_state_class(graph_name)
+        lines[i] = line.replace('START', f'START({state_class})', 1)
+        return '\n'.join(lines)
+    return graph_spec
+
 def transform_graph_spec(graph_spec: str) -> str:
     graph_spec = dedent(graph_spec)
     lines = graph_spec.split("\n")
@@ -328,17 +385,20 @@ def gen_node_names(node_names):
     else:
         yield node_names
 
-def gen_nodes(graph: Union[Graph, dict], found_functions: list[str] = None):
+def gen_nodes(graph: Union[Graph, dict], found_functions: list[str] = None, worker_func_names: set = None):
     """Generate code for graph nodes.
-    
+
     Args:
         graph: Either a Graph instance containing nodes and edges, or a dictionary with graph data
         found_functions: Optional list of found function names
+        worker_func_names: Optional set of worker function names to exclude
     """
     nodes = []
     # workaround python mutable default argument problem (list is mutable, and created once at function definition time)
     if found_functions is None:
         found_functions = []
+    if worker_func_names is None:
+        worker_func_names = set()
     found_function_names = [ff.function_name for ff in found_functions]
 
     # Handle both Graph and dict inputs
@@ -352,6 +412,8 @@ def gen_nodes(graph: Union[Graph, dict], found_functions: list[str] = None):
 
     for node_names, node_data in node_items:
         for node_name in gen_node_names(node_names):
+            if node_name in worker_func_names:
+                continue
             node_code = process_node(node_name, node_data, found_functions, graph, state_type)
             if node_code:
                 nodes.append(node_code)
@@ -386,6 +448,12 @@ def gen_conditions(graph_spec, human=False):
     graph, start_node = parse_graph_spec(graph_spec)
     conditions = []
     state_type = graph[start_node]["state"]
+
+    # Assignment functions (e.g., assign_workers_llm_call) return [Send(...)],
+    # not booleans — skip them in condition generation.
+    transformed_spec = transform_graph_spec(graph_spec)
+    assignment_func_names = {af[0] for af in find_assignment_functions(transformed_spec)}
+
     if human:
         conditions.append(f"""
 # GENERATED CODE: human boolean input for conditions
@@ -397,10 +465,11 @@ def human_bool(condition):
     else:
         return False
 """)
-        
+
     for node_name, node_dict in graph.items():
         for condition in find_conditions(node_dict):
-            conditions.append(gen_condition(condition, state_type, human))
+            if condition not in assignment_func_names:
+                conditions.append(gen_condition(condition, state_type, human))
     result = "# Conditional Edge Functions\n# Functions that determine which path to take in the graph"
     return result + "\n".join(conditions) if conditions else "# Conditional Edge Functions: None"
 
@@ -524,7 +593,13 @@ def gen_assignment_functions(graph_spec):
     
     return result + "\n".join(implementations)
 
-def mock_state(state_class):
+def mock_state(state_class, extra_fields=None):
+    extra_field_lines = ""
+    extra_init_lines = ""
+    if extra_fields:
+        for field_name, field_type in extra_fields:
+            extra_field_lines += f"\n    {field_name}: {field_type}"
+            extra_init_lines += f", '{field_name}': []"
     result = f"""
 # Graph State: {state_class}
 from typing import Annotated, TypedDict
@@ -538,10 +613,10 @@ def add_int(a, b):
 
 class {state_class}(TypedDict):
     nodes_visited: Annotated[list[str], add_str_to_list]
-    counter: Annotated[int, add_int]
+    counter: Annotated[int, add_int]{extra_field_lines}
 
 def initialize_state():
-    return {{ 'nodes_visited': [], 'counter': 0 }}
+    return {{ 'nodes_visited': [], 'counter': 0{extra_init_lines} }}
 """
     return result
 
@@ -551,7 +626,13 @@ def gen_state(graph_spec, state_class_file=None):
     if state_class_file:
         return f"from {state_class_file.split('.')[0]} import {state_class}"
     else:
-        return mock_state(state_class)
+        # Extract extra fields from worker function patterns (e.g., State.sections)
+        extra_fields = []
+        for func_name, param in find_worker_functions(graph_spec):
+            if '.' in param:
+                field_name = param.split('.')[1]
+                extra_fields.append((field_name, 'list'))
+        return mock_state(state_class, extra_fields=extra_fields if extra_fields else None)
 
 
     
@@ -592,15 +673,36 @@ from langgraph.graph import MessageGraph"""
     if start_node != "START":
         graph_setup += f"\n{builder_graph}.set_entry_point('{start_node}')\n\n"
 
+    # Build map of nodes that use worker/assignment patterns (Send API).
+    # For these nodes we emit add_conditional_edges with a list target
+    # instead of the normal routing-function + dict approach.
+    transformed_spec = transform_graph_spec(graph_spec)
+    assignment_funcs = find_assignment_functions(transformed_spec)
+    # Map: source_node_name -> list of (assign_fn, worker_fn)
+    worker_assignment_map = {}
+    for assign_fn, field_name, worker_fn in assignment_funcs:
+        # Walk graph edges to find which node uses this assign_fn as a condition
+        for n, nd in graph.items():
+            for edge in nd["edges"]:
+                if edge["condition"] == assign_fn:
+                    worker_assignment_map.setdefault(n, []).append((assign_fn, worker_fn))
+
     # Generate the code for edges and conditional edges
     node_code = []
     for node_name, node_dict in graph.items():
-        conditions = mk_conditions(node_name, node_dict, graph_spec)
-        if conditions:
-            node_code.append(conditions)
-        conditional_edges = mk_conditional_edges(builder_graph, node_name, node_dict, graph_spec)
-        if conditional_edges:
-            node_code.append(conditional_edges)
+        if node_name in worker_assignment_map:
+            # Worker/assignment pattern — emit list-based conditional edges
+            for assign_fn, worker_fn in worker_assignment_map[node_name]:
+                node_code.append(
+                    f"{builder_graph}.add_conditional_edges('{node_name}', {assign_fn}, ['{worker_fn}'])"
+                )
+        else:
+            conditions = mk_conditions(node_name, node_dict, graph_spec)
+            if conditions:
+                node_code.append(conditions)
+            conditional_edges = mk_conditional_edges(builder_graph, node_name, node_dict, graph_spec)
+            if conditional_edges:
+                node_code.append(conditional_edges)
 
     compile_args = compile_args if compile_args else ""
     if compile_args:
@@ -638,7 +740,13 @@ def validate_graph(graph_spec: str) -> Dict[str, Any]:
     lines = [line.strip() for line in graph_spec.split('\n') if line.strip()]
     first_non_comment = next((line for line in lines if not line.startswith('#')), None)
     
-    if not first_non_comment or not first_non_comment.startswith('START('):
+    has_start = first_non_comment and (
+        first_non_comment.startswith('START(')
+        or first_non_comment.startswith('START =>')
+        or first_non_comment.startswith('START ->')
+        or first_non_comment.startswith('START→')
+    )
+    if not has_start:
         errors.append(ERROR_START_NODE_NOT_FOUND)
         solutions.append(
             "The graph must begin with a START node definition, for example:\n"
