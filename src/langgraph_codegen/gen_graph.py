@@ -121,9 +121,17 @@ def transform_graph_spec(graph_spec: str) -> str:
                     transformed_lines.append(f"{node_name}")
                     for fn_param in fn_params.split(","):
                         transformed_lines.append(f"  {fn_name}_{fn_param.strip()} => {fn_param.strip()}")
-                        # we also need code for that function, we out that as a comment
-                        # "# CONDITION: fn_name_{fn_param} = lambda state: {fn_name}(state) == '{fn_param}'"
-                        transformed_lines.append(f"# CONDITION: {fn_name}_{fn_param.strip()} = lambda state: {fn_name}(state) == '{fn_param.strip()}'")
+                    transformed_lines.append(f"# SWITCH: {fn_name}({fn_params})")
+            elif "?" in destinations:
+                dest = destinations.strip()
+                fn_name = dest.split("?")[0].strip()
+                rest = dest.split("?", 1)[1]
+                true_node = rest.split(":")[0].strip()
+                false_node = rest.split(":")[1].strip()
+                node_name = node_name.strip()
+                transformed_lines.append(f"{node_name}")
+                transformed_lines.append(f"  {fn_name} => {true_node}")
+                transformed_lines.append(f"  => {false_node}")
             else:
                 node_name = node_name.strip()
                 transformed_lines.append(node_name)
@@ -448,9 +456,17 @@ def gen_conditions(graph_spec, human=False):
     transformed_spec = transform_graph_spec(graph_spec)
     assignment_func_names = {af[0] for af in find_assignment_functions(transformed_spec)}
 
+    # Switch functions — single function returning a node name string.
+    # Skip individual bool conditions that belong to a switch.
+    switch_funcs = find_switch_functions(transformed_spec)
+    switch_condition_names = set()
+    for fn_name, params in switch_funcs:
+        for param in params:
+            switch_condition_names.add(f"{fn_name}_{param}")
+
     if human:
         conditions.append(f"""
-# GENERATED CODE: human boolean input for conditions
+# GENERATED CODE: human input helpers for conditions
 from colorama import Fore, Style
 def human_bool(condition):
     result = input(f"{{Fore.BLUE}}{{condition}}{{Style.RESET_ALL}} (y/n): {{Style.RESET_ALL}}")
@@ -458,12 +474,24 @@ def human_bool(condition):
         return True
     else:
         return False
+
+def human_choice(condition, choices):
+    choices_str = ', '.join(choices)
+    result = input(f"{{Fore.BLUE}}{{condition}}{{Style.RESET_ALL}} ({{choices_str}}): {{Style.RESET_ALL}}")
+    if result in choices:
+        return result
+    return choices[0]
 """)
 
     for node_name, node_dict in graph.items():
         for condition in find_conditions(node_dict):
-            if condition not in assignment_func_names:
+            if condition not in assignment_func_names and condition not in switch_condition_names:
                 conditions.append(gen_condition(condition, state_type, human))
+
+    # Generate switch condition functions
+    for fn_name, params in switch_funcs:
+        conditions.append(gen_switch_condition(fn_name, params, state_type, human))
+
     result = "# Conditional Edge Functions\n# Functions that determine which path to take in the graph"
     return result + "\n".join(conditions) if conditions else "# Conditional Edge Functions: None"
 
@@ -536,6 +564,34 @@ def gen_worker_functions(graph_spec):
         implementations.append(gen_worker_function(func_name, param, state_type))
     
     return result + "\n".join(implementations)
+
+def find_switch_functions(transformed_spec):
+    """Extract switch functions from # SWITCH: comments.
+    Returns list of (fn_name, [param1, param2, ...])."""
+    switch_functions = []
+    for line in transformed_spec.splitlines():
+        if line.strip().startswith("# SWITCH:"):
+            content = line.replace("# SWITCH:", "").strip()
+            fn_name = content.split("(")[0].strip()
+            params = content.split("(")[1].split(")")[0].strip()
+            param_list = [p.strip() for p in params.split(",")]
+            switch_functions.append((fn_name, param_list))
+    return switch_functions
+
+
+def gen_switch_condition(fn_name, params, state_type, human=False):
+    choices_str = ", ".join(f"'{p}'" for p in params)
+    if human:
+        choice_fn = f"human_choice('{fn_name}', [{choices_str}])"
+    else:
+        choice_fn = f"random.choice([{choices_str}])"
+    return f"""
+def {fn_name}(state: {state_type}) -> str:
+    result = {choice_fn}
+    print(f'CONDITION: {fn_name}. Result: {{result}}')
+    return result
+"""
+
 
 def find_assignment_functions(graph_spec):
     """Extract Assignment Functions from the transformed graph specification.
@@ -681,6 +737,17 @@ from langgraph.graph import MessageGraph"""
                 if edge["condition"] == assign_fn:
                     worker_assignment_map.setdefault(n, []).append((assign_fn, worker_fn))
 
+    # Build map of nodes that use switch functions (single routing function).
+    # For these nodes we skip mk_conditions (no routing wrapper needed).
+    switch_funcs = find_switch_functions(transformed_spec)
+    switch_node_map = {}
+    for sf_name, sf_params in switch_funcs:
+        for n, nd in graph.items():
+            for edge in nd["edges"]:
+                if edge["condition"].startswith(sf_name + "_"):
+                    switch_node_map[n] = sf_name
+                    break
+
     # Generate the code for edges and conditional edges
     node_code = []
     for node_name, node_dict in graph.items():
@@ -690,6 +757,11 @@ from langgraph.graph import MessageGraph"""
                 node_code.append(
                     f"{builder_graph}.add_conditional_edges('{node_name}', {assign_fn}, ['{worker_fn}'])"
                 )
+        elif node_name in switch_node_map:
+            # Switch function IS the routing function — skip mk_conditions
+            conditional_edges = mk_conditional_edges(builder_graph, node_name, node_dict, graph_spec)
+            if conditional_edges:
+                node_code.append(conditional_edges)
         else:
             conditions = mk_conditions(node_name, node_dict, graph_spec)
             if conditions:

@@ -354,6 +354,31 @@ node_X
 
 ```node_1 => node_2, node_3``` ok to transition to multiple nodes.
 
+##### Conditional Edges
+
+Two syntaxes for conditional routing:
+
+| Form | Syntax | Generated Function |
+|------|--------|--------------------|
+| Boolean | `is_done ? END : execute_step` | `is_done(state) -> bool` |
+| Switch | `determine_next(chart_node, tool_node, END)` | `determine_next(state) -> str` |
+
+**Boolean conditional** — generates a boolean function and a routing wrapper:
+```
+PlanExecute -> plan_step
+plan_step -> execute_step
+execute_step -> replan_step
+replan_step -> is_done ? END : execute_step
+```
+
+**Switch conditional** — generates a single function that returns one of the node names:
+```
+State -> research_node
+research_node -> determine_next_node(chart_node, tool_node, END)
+chart_node -> needs_research(research_node, tool_node, END)
+tool_node -> go_back(research_node, chart_node, END)
+```
+
 ##### Why This DSL Was Made
 
 The main thing I want to do is condense larger patterns into the DSL, to make it easier to experiment with and evaluate graph architectures.
