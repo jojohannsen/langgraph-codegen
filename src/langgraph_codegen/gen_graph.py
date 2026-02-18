@@ -48,19 +48,13 @@ def preprocess_start_syntax(graph_spec, graph_name):
         # First meaningful line
         if not stripped.startswith('START'):
             # Old ClassName -> syntax: e.g. "State -> orchestrator"
-            # Detect arrow and rewrite to START(GeneratedName) => destination
+            # Detect arrow and rewrite to START(ClassName) => destination
+            # The original class name is preserved as-is.
             for arrow in ['->', '=>', '→']:
                 if arrow in stripped:
                     old_class = stripped.split(arrow)[0].strip()
                     destination = stripped.split(arrow)[1].strip()
-                    new_class = snake_to_state_class(graph_name)
-                    lines[i] = f'START({new_class}) => {destination}'
-                    # Replace OldClass. references with NewClass. in the rest of the spec
-                    if old_class != new_class:
-                        old_ref = old_class + '.'
-                        new_ref = new_class + '.'
-                        for j in range(i + 1, len(lines)):
-                            lines[j] = lines[j].replace(old_ref, new_ref)
+                    lines[i] = f'START({old_class}) => {destination}'
                     return '\n'.join(lines)
             return graph_spec
         if '(' in stripped:

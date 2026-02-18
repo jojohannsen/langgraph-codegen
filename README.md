@@ -304,7 +304,42 @@ my_graph = my_graph.compile()
 
 #### Syntax
 
-```START(StateClass) => first_node``` required
+##### START Syntax
+
+The first line declares the graph's state class and entry node. Three forms are supported:
+
+| Form | Syntax | State Class |
+|------|--------|-------------|
+| Bare START | `START => first_node` | Derived from file name (`my_graph.txt` → `MyGraphState`) |
+| Class name | `MessagesState -> llm_call` | Uses the class name you write (`MessagesState`) |
+| Explicit START | `START(PlanExecute) => plan_step` | Uses the class name in parentheses (`PlanExecute`) |
+
+**Form 1 — Bare START** (state class derived from file name):
+```
+# file: my_agent.txt → generates MyAgentState
+START => plan_step
+plan_step => execute_step
+execute_step => END
+```
+
+**Form 2 — Class name** (state class preserved as written):
+```
+MessagesState -> llm_call
+llm_call -> should_continue(environment, END)
+environment -> llm_call
+```
+
+**Form 3 — Explicit START** (most explicit):
+```
+START(PlanExecute) => plan_step
+plan_step => execute_step
+execute_step => replan_step
+replan_step
+  is_done => END
+  => execute_step
+```
+
+##### Edges
 
 ```# anything after pound sign is ignored```
 

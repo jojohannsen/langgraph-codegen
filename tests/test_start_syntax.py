@@ -61,7 +61,7 @@ class TestPreprocessStartSyntax:
     def test_old_classname_syntax_rewritten(self):
         spec = "MyState -> first_node\nfirst_node => END"
         result = preprocess_start_syntax(spec, "bea_agent")
-        assert "START(BeaAgentState) => first_node" in result
+        assert "START(MyState) => first_node" in result
         assert "first_node => END" in result
 
     def test_comments_before_start(self):
@@ -144,19 +144,19 @@ class TestValidateGraphBareStart:
 
 class TestOldSyntaxPreprocessing:
     def test_state_arrow_rewritten(self):
-        """State -> orchestrator becomes START(GeneratedName) => orchestrator"""
+        """State -> orchestrator becomes START(State) => orchestrator"""
         spec = "State -> orchestrator\norchestrator => END"
         result = preprocess_start_syntax(spec, "bea_orchestrator_worker")
-        assert "START(BeaOrchestratorWorkerState) => orchestrator" in result
+        assert "START(State) => orchestrator" in result
 
     def test_messages_state_rewritten(self):
-        """MessagesState -> llm_call becomes START(BeaAgentState) => llm_call"""
+        """MessagesState -> llm_call becomes START(MessagesState) => llm_call"""
         spec = "MessagesState -> llm_call\nllm_call => END"
         result = preprocess_start_syntax(spec, "bea_agent")
-        assert "START(BeaAgentState) => llm_call" in result
+        assert "START(MessagesState) => llm_call" in result
 
-    def test_state_dot_references_replaced(self):
-        """State.field references are updated to match the new class name."""
+    def test_state_dot_references_preserved(self):
+        """State.field references stay as-is since class name is preserved."""
         spec = (
             "State -> orchestrator\n"
             "orchestrator -> llm_call(State.sections)\n"
@@ -164,27 +164,24 @@ class TestOldSyntaxPreprocessing:
             "synthesizer -> END\n"
         )
         result = preprocess_start_syntax(spec, "bea_orchestrator_worker")
-        assert "BeaOrchestratorWorkerState.sections" in result
-        # The old bare "State." (not as suffix of the new name) should be gone
-        assert "llm_call(State.sections)" not in result
+        assert "State.sections" in result
 
-    def test_messages_state_dot_references_replaced(self):
-        """MessagesState.field references are updated too."""
+    def test_messages_state_dot_references_preserved(self):
+        """MessagesState.field references stay as-is since class name is preserved."""
         spec = (
             "MessagesState -> orchestrator\n"
             "orchestrator -> llm_call(MessagesState.items)\n"
             "llm_call -> END\n"
         )
         result = preprocess_start_syntax(spec, "my_workflow")
-        assert "MyWorkflowState.items" in result
-        assert "MessagesState.items" not in result
+        assert "MessagesState.items" in result
 
     def test_comment_before_old_syntax(self):
         """Comments before old syntax are preserved."""
         spec = "# Orchestrator Worker\nState -> orchestrator\norchestrator => END"
         result = preprocess_start_syntax(spec, "bea_orchestrator_worker")
         assert "# Orchestrator Worker" in result
-        assert "START(BeaOrchestratorWorkerState) => orchestrator" in result
+        assert "START(State) => orchestrator" in result
 
     def test_explicit_start_parens_unchanged(self):
         """START(ExplicitName) is never rewritten."""
@@ -196,7 +193,7 @@ class TestOldSyntaxPreprocessing:
         """Old syntax with => arrow also works."""
         spec = "State => orchestrator\norchestrator => END"
         result = preprocess_start_syntax(spec, "my_graph")
-        assert "START(MyGraphState) => orchestrator" in result
+        assert "START(State) => orchestrator" in result
 
     def test_old_syntax_full_pipeline(self):
         """Old syntax produces correct state class through full parse."""
@@ -209,7 +206,7 @@ class TestOldSyntaxPreprocessing:
         )
         spec = preprocess_start_syntax(spec, "bea_orchestrator_worker")
         graph, start_node = parse_graph_spec(spec)
-        assert graph[start_node]["state"] == "BeaOrchestratorWorkerState"
+        assert graph[start_node]["state"] == "State"
 
     def test_old_syntax_worker_pattern_preserved(self):
         """Worker pattern (State.field) still works after rewriting."""
@@ -223,7 +220,7 @@ class TestOldSyntaxPreprocessing:
         workers = find_worker_functions(spec)
         assert len(workers) == 1
         assert workers[0][0] == "llm_call"
-        assert workers[0][1] == "BeaOrchestratorWorkerState.sections"
+        assert workers[0][1] == "State.sections"
 
     def test_old_syntax_gen_state_has_extra_field(self):
         """Worker pattern's iterable field appears in generated state."""
@@ -235,5 +232,5 @@ class TestOldSyntaxPreprocessing:
         )
         spec = preprocess_start_syntax(spec, "bea_orchestrator_worker")
         state_code = gen_state(spec)
-        assert "BeaOrchestratorWorkerState" in state_code
+        assert "State" in state_code
         assert "sections" in state_code
