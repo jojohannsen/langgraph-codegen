@@ -10,7 +10,7 @@ from langgraph_codegen.gen_graph import (
     gen_conditions, gen_worker_functions, gen_assignment_functions,
     find_worker_functions, gen_main, gen_readme,
     parse_graph_spec, parse_state_section, preprocess_start_syntax,
-    list_examples, get_example_path
+    expand_chains, list_examples, get_example_path
 )
 
 
@@ -72,10 +72,13 @@ def main():
     # 1. Extract STATE section first (before preprocessing)
     state_class_name, state_fields, graph_spec = parse_state_section(graph_spec)
 
-    # 2. Preprocess START syntax on the graph-only part
+    # 2. Expand chained arrows (a -> b -> c) into individual edges
+    graph_spec = expand_chains(graph_spec)
+
+    # 3. Preprocess START syntax on the graph-only part
     graph_spec = preprocess_start_syntax(graph_spec, basename)
 
-    # 3. If STATE gave us a class name, ensure START uses it
+    # 4. If STATE gave us a class name, ensure START uses it
     if state_class_name:
         import re
         # Replace START(Whatever) with STATE class name, or bare START

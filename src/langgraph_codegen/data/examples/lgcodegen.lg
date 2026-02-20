@@ -1,82 +1,14 @@
-Create a Pydantic data structure called GraphState based on the following requirements:
-The GraphState class should contain these fields:
-- errors: a list of error messages (strings) encountered during graph processing
-- current_prompt_edge: an object containing the current prompt edge being processed with these sub-fields:
-  - prompt_text: string containing the prompt text
-  - edge_text: string containing the edge text  
-  - graph_start_line_number: integer for the starting line number
-  - graph_end_line_number: integer for the ending line number
-- state_class_name: string containing the name of the Graph State Class
-- current_prompt_edge_line_number: integer for tracking the line number when processing current_prompt_edge instances
-Use proper Pydantic v2 syntax with type hints. Create any necessary nested models for complex fields. Include appropriate default values where it makes sense (empty lists, None for optional fields, etc.).
-
-# Graph is invoked with path to graph file
-START -> read_graph
-{{
-    STATE gets a field for the graph file name, e.g. graph_file_name: str
-}}
-
-# read graph text into state so we can process line by line
-read_graph -> process_lines
-{{
-    graph_text: str
-    lines: list[str]
-    next_line_number: int 
-}}
-
-# set up line by line processing, initialize the prompt-edge pair we will be building
-process_lines -> prepare_for_next_prompt_edge
-{{
-    prompt_edge: dict
-    prompt_edge["line_number"] = the next line number from lines
-}}
-# get the next line to process, classify the line, route based on that classification
-build_prompt_edge -> is_comment(add_prompt, add_edge)
-{{
-    line_is_comment: bool - build_prompt_edge sets this, is_comment checks this
-}}
-
-# add prompt to current prompt-edge pair
-add_comment -> build_prompt_edge
-{{
-    prompt_edge["comment"] exists
-}}
-
-# add edge to the prompt-edge pair, then process that prompt-edge pair, the first one is processed differently than the rest
-add_edge -> is_first(start_graph, process_prompt_edge)
-{{
-    is_first_pair: bool - initialized to True
-}}
-
-# first process the prompt
-process_prompt_edge -> process_prompt
-
-# make any graph state updates based on the prompt, then process the graph edge
-process_prompt -> process_edge
-
-# classify the edge
-process_edge -> classify_edge(unknown_edge_syntax, start_graph, unconditional_edge, conditional_edge, worker_edge)
-
-# record the error in state
-unknown_edge_syntax -> END
-
-# record the error in state
-error_exit -> END
-
-# based on the file name, and the optional name on start edge, set the name of the State Class in state
-start_graph -> state_defined(prepare_for_next_prompt_edge, error_exit)
-
-# clear out current prompt-edge-pair, then start building
+# Graph for the lgcodegen tool itself
+START -> read_graph -> process_lines -> prepare_for_next_prompt_edge
 prepare_for_next_prompt_edge -> build_prompt_edge
-
-# unconditional edges are in format:  A -> B
-# where A and B can be either a single Node Name, or a comma separated list of Node Names.
+build_prompt_edge -> is_comment(add_comment, add_edge)
+add_comment -> build_prompt_edge
+add_edge -> is_first(start_graph, process_prompt_edge)
+process_prompt_edge -> process_prompt -> process_edge
+process_edge -> classify_edge(unknown_edge_syntax, start_graph, unconditional_edge, conditional_edge, worker_edge)
+unknown_edge_syntax -> END
+error_exit -> END
+start_graph -> state_defined(prepare_for_next_prompt_edge, error_exit)
 unconditional_edge -> is_valid(prepare_for_next_prompt_edge, error_exit)
-
-# conditional edges are in format:  A -> condition_function(B, C)
 conditional_edge -> is_valid(prepare_for_next_prompt_edge, error_exit)
-
-# worker edges are in format:  A -> worker_function(iterable_state_field)
-# 'iterable_state_field' is the name of the State Field that provides a list of items, 
-# each of which we pass to the worker_function as a parameter
 worker_edge -> is_valid(prepare_for_next_prompt_edge, error_exit)

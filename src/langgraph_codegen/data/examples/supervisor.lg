@@ -1,11 +1,5 @@
 # Supervisor with supporting agents
-START(AgentState) => supervisor_agent
-
-supervisor_agent
-  next_is_researcher => research_node
-  next_is_coder => code_node
-  next_is_finish => END
-
-research_node => supervisor_agent
-
-code_node => supervisor_agent
+START:AgentState -> supervisor_agent
+supervisor_agent -> route_supervisor(research_node, code_node, END)
+research_node -> supervisor_agent
+code_node -> supervisor_agent

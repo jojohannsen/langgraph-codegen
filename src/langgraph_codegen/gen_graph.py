@@ -31,14 +31,71 @@ def snake_to_state_class(name):
     return ''.join(p.capitalize() for p in parts) + 'State'
 
 
+def expand_chains(graph_spec):
+    """Expand chained arrows into individual edges.
+
+    ``a -> b -> c -> d`` becomes three lines: ``a -> b``, ``b -> c``, ``c -> d``.
+    ``START:State -> a -> b`` becomes ``START:State -> a``, ``a -> b``.
+    ``a -> b, c -> d`` (fan-out/fan-in) becomes ``a -> b, c``, ``b -> d``, ``c -> d``.
+    ``a -> worker(field) -> b`` becomes ``a -> worker(field)``, ``worker -> b``.
+    ``a -> b -> cond ? x : y`` becomes ``a -> b``, ``b -> cond ? x : y``.
+    Lines with 0 or 1 arrows pass through unchanged.
+    """
+    result_lines = []
+    for line in graph_spec.split('\n'):
+        stripped = line.strip()
+        # Pass through comments, blanks, indented lines (conditionals), old => syntax
+        if not stripped or stripped.startswith('#') or line[0:1].isspace() or '->' not in stripped:
+            result_lines.append(line)
+            continue
+
+        # Split on -> to get segments
+        segments = stripped.split('->')
+        if len(segments) <= 2:
+            # 0 or 1 arrows — pass through unchanged
+            result_lines.append(line)
+            continue
+
+        # Multiple arrows — expand into individual edges
+        parts = [s.strip() for s in segments]
+        i = 0
+        while i < len(parts) - 1:
+            src = parts[i]
+            dst = parts[i + 1]
+
+            # For the source: if it's a function call like worker(field),
+            # use just the function name as the source node
+            if i > 0 and '(' in src and ')' in src:
+                src = src.split('(')[0].strip()
+
+            # If dst contains commas and there's a next segment (fan-out/fan-in),
+            # handle fan-in by emitting edges from each comma-target to the next part
+            if ',' in dst and i + 2 < len(parts):
+                fan_nodes = [n.strip() for n in dst.split(',')]
+                next_dst = parts[i + 2]
+                # Emit fan-out: src -> comma group
+                result_lines.append(f"{src} -> {dst}")
+                # Emit fan-in: each node -> next_dst
+                for node in fan_nodes:
+                    result_lines.append(f"{node} -> {next_dst}")
+                # Continue from the fan-in target
+                i += 2
+            else:
+                result_lines.append(f"{src} -> {dst}")
+                i += 1
+
+    return '\n'.join(result_lines)
+
+
 def preprocess_start_syntax(graph_spec, graph_name):
     """Normalise the first line of a graph spec to ``START(GeneratedName) => dest``.
 
-    Handles three cases:
-    1. Bare ``START -> node`` / ``START => node`` — injects generated class name.
-    2. Old ``ClassName -> node`` syntax — rewrites to ``START(GeneratedName) => node``
+    Handles four cases:
+    1. ``START:ClassName -> node`` — rewrites to ``START(ClassName) => node``.
+    2. Bare ``START -> node`` / ``START => node`` — injects generated class name.
+    3. Old ``ClassName -> node`` syntax — rewrites to ``START(ClassName) => node``
        and replaces ``ClassName.`` references with ``GeneratedName.`` throughout.
-    3. ``START(Explicit) => node`` — returned unchanged.
+    4. ``START(Explicit) => node`` — returned unchanged.
     """
     lines = graph_spec.split('\n')
     for i, line in enumerate(lines):
@@ -60,6 +117,15 @@ def preprocess_start_syntax(graph_spec, graph_name):
         if '(' in stripped:
             # Already has parentheses — leave as-is
             return graph_spec
+        # START:ClassName syntax: e.g. "START:MyState -> node"
+        if ':' in stripped.split('->')[0].split('=>')[0]:
+            start_part = stripped.split('->')[0].split('=>')[0].strip()
+            class_name = start_part.split(':', 1)[1].strip()
+            for arrow in ['->', '=>', '→']:
+                if arrow in stripped:
+                    destination = stripped.split(arrow, 1)[1].strip()
+                    lines[i] = f'START({class_name}) => {destination}'
+                    return '\n'.join(lines)
         # Bare START without parens — inject generated class name
         state_class = snake_to_state_class(graph_name)
         lines[i] = line.replace('START', f'START({state_class})', 1)
@@ -68,6 +134,7 @@ def preprocess_start_syntax(graph_spec, graph_name):
 
 def transform_graph_spec(graph_spec: str) -> str:
     graph_spec = dedent(graph_spec)
+    graph_spec = expand_chains(graph_spec)
     lines = graph_spec.split("\n")
     transformed_lines = []
     state_class_name = None
@@ -106,9 +173,15 @@ def transform_graph_spec(graph_spec: str) -> str:
                 # if fn call parameter is {state_class_name}.{field_name}, we need to extract that
                 fn_params = line.split("(")[1].split(")")[0].strip()
                 fn_name = line.split(arrow)[1].split("(")[0].strip()
-                # this would be exactly 1 parameter, in that format
-                if fn_params.startswith(state_class_name):
-                    iterable_field_name = fn_params.split(".")[1]
+                # Single-param call = worker function (plain field or State.field)
+                param_list = [p.strip() for p in fn_params.split(',') if p.strip()]
+                is_worker = len(param_list) == 1
+                if is_worker:
+                    # Extract field name: strip State. prefix if present
+                    if '.' in fn_params and fn_params.split('.')[0].strip() == state_class_name:
+                        iterable_field_name = fn_params.split('.')[1].strip()
+                    else:
+                        iterable_field_name = fn_params.strip()
                     assignment_function_name = f"assign_workers_{fn_name}"
                     transformed_lines.append(f"{node_name}")
                     transformed_lines.append(f"  {assignment_function_name} => {fn_name}")
@@ -524,28 +597,22 @@ def find_worker_functions(graph_spec):
 
 def gen_worker_function(func_name, param, state_type):
     """Generate a Worker Function implementation.
-    
-    For example: llm_call(State.sections) becomes a function that processes
-    individual items and returns a single update.
+
+    For example: llm_call(State.sections) or llm_call(sections) becomes a function
+    that processes individual items and returns a single update.
     """
-    # Extract field name from State.field pattern
-    if '.' in param and param.startswith(state_type):
+    # Extract field name: strip State. prefix if present
+    if '.' in param:
         field_name = param.split('.')[1]
-        return f"""
+    else:
+        field_name = param
+    return f"""
 def {func_name}(item):
     \"\"\"Worker function that processes individual {field_name} items.\"\"\"
     # TODO: Implement your {func_name} logic here
     # This function receives a single item from state['{field_name}']
     # and should return a dictionary with updates
     return {{"result": f"processed {{item}}"}}
-"""
-    else:
-        # For other parameter patterns
-        return f"""
-def {func_name}(param):
-    \"\"\"Worker function that processes {param}.\"\"\"
-    # TODO: Implement your {func_name} logic here
-    return {{"result": f"processed {{param}}"}}
 """
 
 def gen_worker_functions(graph_spec):
@@ -772,12 +839,14 @@ def gen_state(graph_spec, state_class_file=None, state_fields=None, state_class_
     if state_class_file:
         return f"from {state_class_file.split('.')[0]} import {state_class}"
 
-    # Extract worker-pattern extra fields (e.g., State.sections)
+    # Extract worker-pattern extra fields (e.g., State.sections or plain sections)
     worker_extra = []
     for func_name, param in find_worker_functions(graph_spec):
         if '.' in param:
             field_name = param.split('.')[1]
-            worker_extra.append((field_name, 'list'))
+        else:
+            field_name = param
+        worker_extra.append((field_name, 'list'))
 
     if state_fields:
         # Custom STATE section — add worker fields only if missing
@@ -915,6 +984,7 @@ def validate_graph(graph_spec: str) -> Dict[str, Any]:
     
     has_start = first_non_comment and (
         first_non_comment.startswith('START(')
+        or first_non_comment.startswith('START:')
         or first_non_comment.startswith('START =>')
         or first_non_comment.startswith('START ->')
         or first_non_comment.startswith('START→')
@@ -923,10 +993,10 @@ def validate_graph(graph_spec: str) -> Dict[str, Any]:
         errors.append(ERROR_START_NODE_NOT_FOUND)
         solutions.append(
             "The graph must begin with a START node definition, for example:\n"
-            "START(State) => first_node"
+            "START:State -> first_node"
         )
         details.append(f"Found: {first_non_comment or 'No non-comment lines'}\n"
-                      f"Expected: START(<state_type>) => <first_node>")
+                      f"Expected: START:StateClass -> first_node")
     
     try:
         if not errors:  # Only try to parse if no errors so far

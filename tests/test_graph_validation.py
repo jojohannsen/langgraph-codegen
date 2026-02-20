@@ -50,24 +50,24 @@ def test_missing_start_node():
     result = validate_graph(graph_spec)
     assert "error" in result
     assert ERROR_START_NODE_NOT_FOUND in result["error"]
-    assert "START(State) =>" in result["solution"]
+    assert "START" in result["solution"]
 
 def test_start_node_not_first():
     """Test validation that START must be the first non-comment node"""
     graph_spec = """
     # This is a comment
     node1 => node2
-    
+
     START(State) => node1
-    
+
     node2
         => END
     """
-    
+
     result = validate_graph(graph_spec)
     assert "error" in result
     assert ERROR_START_NODE_NOT_FOUND in result["error"]
-    assert "START(State) =>" in result["solution"]
+    assert "START" in result["solution"]
 
 def test_valid_start_node():
     """Test valid START node passes validation"""
@@ -114,6 +114,20 @@ def test_single_error():
     result = validate_graph(graph_spec)
     assert "error" in result
     assert ERROR_START_NODE_NOT_FOUND in result["error"]
+
+def test_start_colon_valid():
+    """Test START:ClassName passes validation."""
+    graph_spec = "START:State -> first_node\nfirst_node => END"
+    result = validate_graph(graph_spec)
+    assert "error" not in result or "START node not found" not in result.get("error", "")
+
+
+def test_start_colon_with_class_name():
+    """Test START:AgentState passes validation."""
+    graph_spec = "START:AgentState -> get_docs\nget_docs -> END"
+    result = validate_graph(graph_spec)
+    assert "error" not in result or "START node not found" not in result.get("error", "")
+
 
 if __name__ == "__main__":
     pytest.main([__file__])

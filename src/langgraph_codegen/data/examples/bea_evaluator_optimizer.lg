@@ -1,4 +1,3 @@
 # Evaluator Optimizer
-State -> llm_call_generator
-llm_call_generator -> llm_call_evaluator
+START:State -> llm_call_generator -> llm_call_evaluator
 llm_call_evaluator -> route_joke(END, llm_call_generator)

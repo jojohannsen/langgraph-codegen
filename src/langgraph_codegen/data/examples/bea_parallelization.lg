@@ -1,0 +1,2 @@
+# Parallelization
+START:State -> call_llm_1, call_llm_2, call_llm_3 -> aggregator -> END

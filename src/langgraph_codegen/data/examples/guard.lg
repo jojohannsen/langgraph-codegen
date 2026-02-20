@@ -1,11 +1,3 @@
-START(SomeState) => guardrail
-
-guardrail => retrieval
-
-retrieval => agent
-
-agent
-  tool_condition => tools
-  => END
-
-tools => agent
+START:SomeState -> guardrail -> retrieval -> agent
+agent -> tool_condition ? tools : END
+tools -> agent

@@ -4,6 +4,7 @@ from .gen_graph import (
     find_worker_functions, find_switch_functions,
     gen_main, gen_readme,
     parse_graph_spec, parse_state_section, transform_graph_spec,
+    expand_chains,
     gen_state_class, type_to_reducer, type_to_default,
     snake_to_state_class, preprocess_start_syntax,
     list_examples, get_example_path
@@ -15,6 +16,7 @@ __all__ = [
     "find_worker_functions", "find_switch_functions",
     "gen_main", "gen_readme",
     "parse_graph_spec", "parse_state_section", "transform_graph_spec",
+    "expand_chains",
     "gen_state_class", "type_to_reducer", "type_to_default",
     "snake_to_state_class", "preprocess_start_syntax",
     "list_examples", "get_example_path",

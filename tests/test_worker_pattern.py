@@ -5,7 +5,7 @@ try:
         gen_graph, gen_state, gen_nodes, gen_conditions,
         gen_worker_functions, gen_assignment_functions,
         parse_graph_spec, find_worker_functions, find_assignment_functions,
-        transform_graph_spec,
+        transform_graph_spec, expand_chains, preprocess_start_syntax,
     )
 except ImportError:
     import sys
@@ -15,7 +15,7 @@ except ImportError:
         gen_graph, gen_state, gen_nodes, gen_conditions,
         gen_worker_functions, gen_assignment_functions,
         parse_graph_spec, find_worker_functions, find_assignment_functions,
-        transform_graph_spec,
+        transform_graph_spec, expand_chains, preprocess_start_syntax,
     )
 
 ORCHESTRATOR_WORKER_SPEC = """\
@@ -143,3 +143,53 @@ replan_step
     def test_state_no_extra_fields(self):
         state_code = gen_state(self.SIMPLE_SPEC)
         assert "sections" not in state_code
+
+
+# ========== Plain field name tests (new notation) ==========
+
+PLAIN_FIELD_SPEC = """\
+START:State -> orchestrator
+orchestrator -> llm_call(sections) -> synthesizer -> END
+"""
+
+
+class TestPlainFieldWorker:
+    """Test worker pattern with plain field name (sections instead of State.sections)."""
+
+    def _prep(self, spec):
+        spec = expand_chains(spec)
+        return preprocess_start_syntax(spec, "test")
+
+    def test_finds_worker_pattern(self):
+        spec = self._prep(PLAIN_FIELD_SPEC)
+        workers = find_worker_functions(spec)
+        assert len(workers) == 1
+        assert workers[0] == ("llm_call", "sections")
+
+    def test_assignment_in_transformed_spec(self):
+        spec = self._prep(PLAIN_FIELD_SPEC)
+        transformed = transform_graph_spec(spec)
+        assignments = find_assignment_functions(transformed)
+        assert len(assignments) == 1
+        assert assignments[0] == ("assign_workers_llm_call", "sections", "llm_call")
+
+    def test_state_includes_field(self):
+        spec = self._prep(PLAIN_FIELD_SPEC)
+        state_code = gen_state(spec)
+        assert "sections" in state_code
+
+    def test_graph_uses_list_conditional_edges(self):
+        spec = self._prep(PLAIN_FIELD_SPEC)
+        graph_code = gen_graph("test_plain", spec)
+        assert "add_conditional_edges('orchestrator', assign_workers_llm_call, ['llm_call'])" in graph_code
+
+    def test_no_conditions_generated(self):
+        spec = self._prep(PLAIN_FIELD_SPEC)
+        conditions = gen_conditions(spec)
+        assert conditions == "# Conditional Edge Functions: None"
+
+    def test_worker_function_code(self):
+        spec = self._prep(PLAIN_FIELD_SPEC)
+        workers_code = gen_worker_functions(spec)
+        assert "def llm_call(item):" in workers_code
+        assert "sections" in workers_code

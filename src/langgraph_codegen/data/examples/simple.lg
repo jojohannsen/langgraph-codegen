@@ -1,17 +1,4 @@
-START(State) => process_input
-
-process_input => validate_data
-
-validate_data
-  is_valid => transform_data
-  is_invalid => handle_error
-  => END
-
-transform_data
-  => store_result
-
-store_result
-  => END
-
-handle_error
-  => END
+START:State -> process_input -> validate_data
+validate_data -> route_validation(transform_data, handle_error, END)
+transform_data -> store_result -> END
+handle_error -> END

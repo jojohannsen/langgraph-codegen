@@ -1,12 +1,18 @@
 try:
     # Try installed package first
-    from langgraph_codegen.gen_graph import gen_graph, gen_state, parse_graph_spec, validate_graph
+    from langgraph_codegen.gen_graph import (
+        gen_graph, gen_state, parse_graph_spec, validate_graph,
+        expand_chains, preprocess_start_syntax,
+    )
 except ImportError:
     # Fall back to local development path
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-    from langgraph_codegen.gen_graph import gen_graph, gen_state, parse_graph_spec, validate_graph
+    from langgraph_codegen.gen_graph import (
+        gen_graph, gen_state, parse_graph_spec, validate_graph,
+        expand_chains, preprocess_start_syntax,
+    )
 
 def test_parse_graph_spec_conditions():
     # Test graph with various condition types
@@ -138,6 +144,50 @@ def test_parse_graph_spec_workflow():
     # now just generate graph code and print it
     graph_code = gen_graph("test_graph", graph_spec)
     print(graph_code)
+
+def test_new_notation_simple_chain():
+    """Test new notation with chained arrows and START:Class syntax."""
+    graph_spec = "START:State -> process_input -> validate_data\nvalidate_data -> route(transform_data, handle_error, END)\ntransform_data -> store_result -> END\nhandle_error -> END"
+    graph_spec = expand_chains(graph_spec)
+    graph_spec = preprocess_start_syntax(graph_spec, "simple")
+    graph, start_node = parse_graph_spec(graph_spec)
+
+    assert graph[start_node]["state"] == "State"
+    assert "process_input" in graph
+    assert "validate_data" in graph
+    assert "transform_data" in graph
+    assert "store_result" in graph
+    assert "handle_error" in graph
+
+
+def test_new_notation_rag_pipeline():
+    """Test RAG pipeline in new notation with full chaining."""
+    graph_spec = "START:AgentState -> get_docs -> format_docs -> format_prompt -> generate -> END"
+    graph_spec = expand_chains(graph_spec)
+    graph_spec = preprocess_start_syntax(graph_spec, "rag")
+    graph, start_node = parse_graph_spec(graph_spec)
+
+    assert graph[start_node]["state"] == "AgentState"
+    for node in ["get_docs", "format_docs", "format_prompt", "generate"]:
+        assert node in graph
+
+    # Verify linear flow
+    assert graph["get_docs"]["edges"][0]["destination"] == "format_docs"
+    assert graph["format_docs"]["edges"][0]["destination"] == "format_prompt"
+    assert graph["format_prompt"]["edges"][0]["destination"] == "generate"
+    assert graph["generate"]["edges"][0]["destination"] == "END"
+
+
+def test_new_notation_gen_graph():
+    """Test gen_graph output with new notation spec."""
+    graph_spec = "START:State -> call_model\ncall_model -> should_call_tool ? tool_node : END\ntool_node -> call_model"
+    graph_spec = expand_chains(graph_spec)
+    graph_spec = preprocess_start_syntax(graph_spec, "react_agent")
+    graph_code = gen_graph("react_agent", graph_spec)
+    assert "StateGraph(State)" in graph_code
+    assert "add_node('call_model'" in graph_code
+    assert "add_node('tool_node'" in graph_code
+
 
 if __name__ == "__main__":
     #test_parse_graph_spec_conditions()

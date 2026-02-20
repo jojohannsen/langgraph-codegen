@@ -1,4 +1,0 @@
-# Parallelization
-State -> call_llm_1, call_llm_2, call_llm_3
-call_llm_1, call_llm_2, call_llm_3 -> aggregator
-aggregator -> END

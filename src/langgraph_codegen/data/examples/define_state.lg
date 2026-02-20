@@ -1,0 +1,10 @@
+# This graph has a conversation with a human to get the following information in a structured form:
+#
+# 1. The name of the class for holding the information.
+# 2. The fields we need to keep in the data structure.
+#
+# When conversation is done, write out the graph state class.
+#
+START:DataStructureToDefineState -> ask_human -> extract_info
+extract_info -> is_done ? END : give_feedback
+give_feedback -> ask_human

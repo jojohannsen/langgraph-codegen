@@ -6,6 +6,7 @@ try:
         gen_worker_functions, gen_assignment_functions,
         parse_graph_spec, transform_graph_spec,
         find_switch_functions, find_worker_functions, find_assignment_functions,
+        expand_chains, preprocess_start_syntax,
     )
 except ImportError:
     import sys
@@ -16,6 +17,7 @@ except ImportError:
         gen_worker_functions, gen_assignment_functions,
         parse_graph_spec, transform_graph_spec,
         find_switch_functions, find_worker_functions, find_assignment_functions,
+        expand_chains, preprocess_start_syntax,
     )
 
 
@@ -247,3 +249,100 @@ class TestWorkerPatternUnchanged:
     def test_no_switch_in_worker_spec(self):
         transformed = transform_graph_spec(WORKER_SPEC)
         assert find_switch_functions(transformed) == []
+
+
+# ========== New notation variants ==========
+
+NEW_SWITCH_SPEC = """\
+START:PlanExecute -> plan_step -> execute_step -> replan_step
+replan_step -> is_done(END, execute_step)
+"""
+
+NEW_TERNARY_SPEC = """\
+START:PlanExecute -> plan_step -> execute_step -> replan_step
+replan_step -> is_done ? END : execute_step
+"""
+
+NEW_WORKER_SPEC = """\
+START:State -> orchestrator
+orchestrator -> llm_call(sections) -> synthesizer -> END
+"""
+
+
+class TestNewNotationSwitch:
+    """Switch syntax with START:Class and chaining."""
+
+    def _prep(self, spec):
+        spec = expand_chains(spec)
+        return preprocess_start_syntax(spec, "test")
+
+    def test_parse_produces_correct_edges(self):
+        spec = self._prep(NEW_SWITCH_SPEC)
+        graph, _ = parse_graph_spec(spec)
+        assert "plan_step" in graph
+        assert "execute_step" in graph
+        assert "replan_step" in graph
+
+    def test_generates_switch_function(self):
+        spec = self._prep(NEW_SWITCH_SPEC)
+        conditions = gen_conditions(spec)
+        assert "def is_done(state: PlanExecute) -> str:" in conditions
+
+    def test_graph_output(self):
+        spec = self._prep(NEW_SWITCH_SPEC)
+        graph_code = gen_graph("test_switch", spec)
+        assert "add_edge('plan_step', 'execute_step')" in graph_code
+        assert "add_edge('execute_step', 'replan_step')" in graph_code
+        assert "add_conditional_edges('replan_step', is_done," in graph_code
+
+
+class TestNewNotationTernary:
+    """Ternary syntax with START:Class and chaining."""
+
+    def _prep(self, spec):
+        spec = expand_chains(spec)
+        return preprocess_start_syntax(spec, "test")
+
+    def test_parse_produces_correct_edges(self):
+        spec = self._prep(NEW_TERNARY_SPEC)
+        graph, _ = parse_graph_spec(spec)
+        edges = graph["replan_step"]["edges"]
+        assert len(edges) == 2
+        assert edges[0] == {"condition": "is_done", "destination": "END"}
+        assert edges[1] == {"condition": "true_fn", "destination": "execute_step"}
+
+    def test_generates_boolean_function(self):
+        spec = self._prep(NEW_TERNARY_SPEC)
+        conditions = gen_conditions(spec)
+        assert "def is_done(state: PlanExecute) -> bool:" in conditions
+
+    def test_graph_output(self):
+        spec = self._prep(NEW_TERNARY_SPEC)
+        graph_code = gen_graph("test_ternary", spec)
+        assert "add_edge('plan_step', 'execute_step')" in graph_code
+        assert "add_edge('execute_step', 'replan_step')" in graph_code
+
+
+class TestNewNotationWorker:
+    """Worker pattern with START:Class, plain field name, and chaining."""
+
+    def _prep(self, spec):
+        spec = expand_chains(spec)
+        return preprocess_start_syntax(spec, "test")
+
+    def test_worker_detected(self):
+        spec = self._prep(NEW_WORKER_SPEC)
+        workers = find_worker_functions(spec)
+        assert len(workers) == 1
+        assert workers[0] == ("llm_call", "sections")
+
+    def test_graph_uses_list_conditional_edges(self):
+        spec = self._prep(NEW_WORKER_SPEC)
+        graph_code = gen_graph("test_worker", spec)
+        assert "add_conditional_edges('orchestrator', assign_workers_llm_call, ['llm_call'])" in graph_code
+
+    def test_synthesizer_edge(self):
+        spec = self._prep(NEW_WORKER_SPEC)
+        graph_code = gen_graph("test_worker", spec)
+        assert "add_edge('llm_call', 'synthesizer')" in graph_code
+        assert "add_edge('synthesizer', END)" in graph_code

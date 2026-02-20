@@ -1,5 +1,0 @@
-# Orchestrator Worker
-State -> orchestrator
-orchestrator -> llm_call(State.sections)
-llm_call -> synthesizer
-synthesizer -> END

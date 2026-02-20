@@ -1,4 +1,4 @@
 # Agent
-MessagesState -> llm_call
+START:MessagesState -> llm_call
 llm_call -> should_continue(environment, END)
 environment -> llm_call
