@@ -14,11 +14,18 @@ except ImportError:
         expand_chains, preprocess_start_syntax,
     )
 
+def _prep(spec, graph_name="test"):
+    from textwrap import dedent
+    spec = dedent(spec)
+    spec = expand_chains(spec)
+    return preprocess_start_syntax(spec, graph_name)
+
+
 def test_parse_graph_spec_conditions():
     # Test graph with various condition types
-    graph_spec = """
-START(XState) => node1
-    
+    graph_spec = _prep("""
+START:XState -> node1
+
 node1
     is_valid => node2
     is_error => error_node
@@ -29,7 +36,7 @@ node2 => END
 error_node => END
 
 final_node => END
-    """
+    """)
 
     graph, start_node = parse_graph_spec(graph_spec)
 
@@ -60,7 +67,7 @@ final_node => END
 
 def test_parse_graph_spec_parallel_conditions():
     # Test graph with parallel conditions (comma-separated destinations)
-    graph_spec = """
+    graph_spec = _prep("""
     start(State) => node1, node2
 
     node1
@@ -72,7 +79,7 @@ def test_parse_graph_spec_parallel_conditions():
     final_node => END
 
     error_node => END
-    """
+    """)
 
     graph, start_node = parse_graph_spec(graph_spec)
 
@@ -91,8 +98,8 @@ def test_parse_graph_spec_parallel_conditions():
 
 def test_parse_graph_spec_workflow():
     # Test graph representing a data processing workflow
-    graph_spec = """
-    START(State) => process_input
+    graph_spec = _prep("""
+    START:State -> process_input
 
     process_input => validate_data
 
@@ -106,7 +113,7 @@ def test_parse_graph_spec_workflow():
     store_result => END
 
     handle_error => END
-    """
+    """)
 
     graph, start_node = parse_graph_spec(graph_spec)
 

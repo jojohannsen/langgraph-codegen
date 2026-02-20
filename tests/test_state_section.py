@@ -3,6 +3,7 @@ try:
         parse_state_section, type_to_reducer, type_to_default,
         gen_state_class, gen_state, mock_state, parse_graph_spec,
         find_worker_functions, DEFAULT_STATE_FIELDS,
+        expand_chains, preprocess_start_syntax,
     )
 except ImportError:
     import sys
@@ -12,13 +13,19 @@ except ImportError:
         parse_state_section, type_to_reducer, type_to_default,
         gen_state_class, gen_state, mock_state, parse_graph_spec,
         find_worker_functions, DEFAULT_STATE_FIELDS,
+        expand_chains, preprocess_start_syntax,
     )
+
+
+def _prep(spec, graph_name="test"):
+    spec = expand_chains(spec)
+    return preprocess_start_syntax(spec, graph_name)
 
 
 # --- Parsing tests ---
 
 def test_parse_no_state_section():
-    spec = "START(MyState) => plan_step\nplan_step => END\n"
+    spec = "START:MyState -> plan_step\nplan_step => END\n"
     class_name, fields, remaining = parse_state_section(spec)
     assert class_name is None
     assert fields == []
@@ -30,14 +37,14 @@ def test_parse_state_section_basic():
 nodes_visited: list[str]
 counter: int
 
-START => plan_step
+START -> plan_step
 plan_step => END
 """
     class_name, fields, remaining = parse_state_section(spec)
     assert class_name == "PlanExecute"
     assert fields == [("nodes_visited", "list[str]"), ("counter", "int")]
     assert "STATE:" not in remaining
-    assert "START => plan_step" in remaining
+    assert "START -> plan_step" in remaining
 
 
 def test_parse_state_section_comments():
@@ -47,7 +54,7 @@ name: str
 # another comment
 age: int
 
-START => step1
+START -> step1
 """
     class_name, fields, remaining = parse_state_section(spec)
     assert class_name == "MyState"
@@ -59,26 +66,26 @@ def test_parse_state_section_stops_at_blank_line():
 name: str
 count: int
 
-START => step1
+START -> step1
 step1 => END
 """
     class_name, fields, remaining = parse_state_section(spec)
     assert class_name == "MyState"
     assert len(fields) == 2
-    assert "START => step1" in remaining
+    assert "START -> step1" in remaining
 
 
 def test_parse_state_section_stops_at_start():
     spec = """STATE: MyState
 name: str
 count: int
-START => step1
+START -> step1
 step1 => END
 """
     class_name, fields, remaining = parse_state_section(spec)
     assert class_name == "MyState"
     assert fields == [("name", "str"), ("count", "int")]
-    assert "START => step1" in remaining
+    assert "START -> step1" in remaining
 
 
 def test_parse_various_types():
@@ -91,7 +98,7 @@ active: bool
 score: float
 steps: list[dict]
 
-START => step1
+START -> step1
 """
     class_name, fields, remaining = parse_state_section(spec)
     assert class_name == "BigState"
@@ -195,7 +202,7 @@ def test_only_needed_reducers_emitted():
 # --- Integration tests ---
 
 def test_gen_state_with_explicit_fields():
-    spec = "START(CustomState) => step1\nstep1 => END\n"
+    spec = _prep("START:CustomState -> step1\nstep1 => END\n")
     fields = [("plan", "str"), ("steps", "list[dict]"), ("counter", "int")]
     code = gen_state(spec, state_fields=fields)
     assert "class CustomState(TypedDict):" in code
@@ -207,7 +214,7 @@ def test_gen_state_with_explicit_fields():
 
 
 def test_gen_state_default_backward_compat():
-    spec = "START(MyState) => step1\nstep1 => END\n"
+    spec = _prep("START:MyState -> step1\nstep1 => END\n")
     code = gen_state(spec)
     assert "class MyState(TypedDict):" in code
     assert "nodes_visited" in code
@@ -218,11 +225,11 @@ def test_gen_state_default_backward_compat():
 
 
 def test_worker_fields_added_when_missing():
-    spec = """START(OrcState) => orchestrator
+    spec = _prep("""START:OrcState -> orchestrator
 orchestrator -> llm_call(OrcState.sections)
 llm_call => synthesize
 synthesize => END
-"""
+""")
     fields = [("plan", "str"), ("counter", "int")]
     code = gen_state(spec, state_fields=fields)
     assert "sections:" in code
@@ -232,11 +239,11 @@ synthesize => END
 
 
 def test_worker_fields_not_duplicated():
-    spec = """START(OrcState) => orchestrator
+    spec = _prep("""START:OrcState -> orchestrator
 orchestrator -> llm_call(OrcState.sections)
 llm_call => synthesize
 synthesize => END
-"""
+""")
     fields = [("sections", "list[str]"), ("counter", "int")]
     code = gen_state(spec, state_fields=fields)
     # sections should appear exactly once in the class body
@@ -245,7 +252,7 @@ synthesize => END
 
 
 def test_gen_state_with_state_class_name_override():
-    spec = "START(WrongName) => step1\nstep1 => END\n"
+    spec = _prep("START:WrongName -> step1\nstep1 => END\n")
     code = gen_state(spec, state_class_name="CorrectName")
     assert "class CorrectName(TypedDict):" in code
     assert "WrongName" not in code
@@ -260,7 +267,7 @@ plan: str
 steps: list[dict]
 counter: int
 
-START => plan_step
+START -> plan_step
 plan_step => execute_step
 execute_step => END
 """
@@ -268,9 +275,8 @@ execute_step => END
     assert class_name == "PlanExecute"
     assert len(fields) == 3
 
-    # Simulate what lgcodegen.py does: inject class name into START
-    import re
-    graph_spec = graph_spec.replace("START =>", f"START({class_name}) =>")
+    # Simulate what lgcodegen.py does: preprocess START line
+    graph_spec = preprocess_start_syntax(graph_spec, class_name)
 
     code = gen_state(graph_spec, state_fields=fields, state_class_name=class_name)
     assert "class PlanExecute(TypedDict):" in code
@@ -284,7 +290,7 @@ execute_step => END
 
 def test_lg_without_state_section():
     """End-to-end: no STATE section uses defaults (backward compatible)."""
-    lg_content = """START(SimpleState) => step1
+    lg_content = """START:SimpleState -> step1
 step1 => step2
 step2 => END
 """
@@ -293,6 +299,7 @@ step2 => END
     assert fields == []
     assert graph_spec == lg_content
 
+    graph_spec = _prep(graph_spec)
     code = gen_state(graph_spec)
     assert "class SimpleState(TypedDict):" in code
     assert "nodes_visited" in code

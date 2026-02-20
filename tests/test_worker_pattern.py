@@ -18,12 +18,20 @@ except ImportError:
         transform_graph_spec, expand_chains, preprocess_start_syntax,
     )
 
-ORCHESTRATOR_WORKER_SPEC = """\
-START(State) => orchestrator
+_ORCHESTRATOR_WORKER_SPEC_RAW = """\
+START:State -> orchestrator
 orchestrator -> llm_call(State.sections)
 llm_call -> synthesizer
 synthesizer -> END
 """
+
+
+def _prep(spec, graph_name="test"):
+    spec = expand_chains(spec)
+    return preprocess_start_syntax(spec, graph_name)
+
+
+ORCHESTRATOR_WORKER_SPEC = _prep(_ORCHESTRATOR_WORKER_SPEC_RAW)
 
 
 class TestFindWorkerFunctions:
@@ -33,7 +41,7 @@ class TestFindWorkerFunctions:
         assert workers[0] == ("llm_call", "State.sections")
 
     def test_no_workers_in_regular_spec(self):
-        spec = "START(State) => node1\nnode1 => END\n"
+        spec = _prep("START:State -> node1\nnode1 => END\n")
         assert find_worker_functions(spec) == []
 
 
@@ -52,7 +60,7 @@ class TestGenStateWorkerFields:
         assert "'sections': []" in state_code
 
     def test_regular_spec_no_extra_fields(self):
-        spec = "START(State) => node1\nnode1 => END\n"
+        spec = _prep("START:State -> node1\nnode1 => END\n")
         state_code = gen_state(spec)
         assert "sections" not in state_code
 
@@ -63,12 +71,12 @@ class TestGenConditionsSkipsAssignment:
         assert conditions == "# Conditional Edge Functions: None"
 
     def test_regular_conditions_still_generated(self):
-        spec = """\
-START(State) => node1
+        spec = _prep("""\
+START:State -> node1
 node1
   is_done => END
   => node1
-"""
+""")
         conditions = gen_conditions(spec)
         assert "def is_done" in conditions
         assert "-> bool" in conditions
@@ -115,14 +123,14 @@ class TestGenGraphWorkerPattern:
 class TestNonWorkerSpecsUnchanged:
     """Ensure regular (non-worker) specs still generate correctly."""
 
-    SIMPLE_SPEC = """\
-START(State) => plan_step
+    SIMPLE_SPEC = _prep("""\
+START:State -> plan_step
 plan_step => execute_step
 execute_step => replan_step
 replan_step
   is_done => END
   => execute_step
-"""
+""")
 
     def test_conditions_generated(self):
         conditions = gen_conditions(self.SIMPLE_SPEC)

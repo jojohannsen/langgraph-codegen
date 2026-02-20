@@ -21,31 +21,31 @@ except ImportError:
     )
 
 
-# --- Specs ---
+# --- Specs (user-facing notation) ---
 
-SWITCH_SPEC = """\
-START(PlanExecute) => plan_step
+_SWITCH_SPEC_RAW = """\
+START:PlanExecute -> plan_step
 plan_step => execute_step
 execute_step => replan_step
 replan_step -> is_done(END, execute_step)
 """
 
-TERNARY_SPEC = """\
-START(PlanExecute) => plan_step
+_TERNARY_SPEC_RAW = """\
+START:PlanExecute -> plan_step
 plan_step => execute_step
 execute_step => replan_step
 replan_step -> is_done ? END : execute_step
 """
 
-MULTI_SWITCH_SPEC = """\
+_MULTI_SWITCH_SPEC_RAW = """\
 START -> research_node
 research_node -> determine_next_node(chart_node, tool_node, END)
 chart_node -> needs_research(research_node, tool_node, END)
 tool_node -> go_back(research_node, chart_node, END)
 """
 
-INDENTED_SPEC = """\
-START(State) => plan_step
+_INDENTED_SPEC_RAW = """\
+START:State -> plan_step
 plan_step => execute_step
 execute_step => replan_step
 replan_step
@@ -53,12 +53,25 @@ replan_step
   => execute_step
 """
 
-WORKER_SPEC = """\
-START(State) => orchestrator
+_WORKER_SPEC_RAW = """\
+START:State -> orchestrator
 orchestrator -> llm_call(State.sections)
 llm_call -> synthesizer
 synthesizer -> END
 """
+
+
+def _prep(spec, graph_name="test"):
+    spec = expand_chains(spec)
+    return preprocess_start_syntax(spec, graph_name)
+
+
+# Preprocessed specs for functions that expect internal form
+SWITCH_SPEC = _prep(_SWITCH_SPEC_RAW)
+TERNARY_SPEC = _prep(_TERNARY_SPEC_RAW)
+MULTI_SWITCH_SPEC = _prep(_MULTI_SWITCH_SPEC_RAW, "multi_agent")
+INDENTED_SPEC = _prep(_INDENTED_SPEC_RAW)
+WORKER_SPEC = _prep(_WORKER_SPEC_RAW)
 
 
 # ========== Switch syntax tests ==========

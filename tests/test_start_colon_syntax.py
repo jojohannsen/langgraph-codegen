@@ -21,11 +21,6 @@ class TestPreprocessStartColon:
         result = preprocess_start_syntax(spec, "rag")
         assert "START(AgentState) => get_docs" in result
 
-    def test_start_colon_with_fat_arrow(self):
-        spec = "START:State => first_node"
-        result = preprocess_start_syntax(spec, "test")
-        assert "START(State) => first_node" in result
-
     def test_start_colon_preserves_rest_of_spec(self):
         spec = "START:State -> a\na -> b\nb -> END"
         result = preprocess_start_syntax(spec, "test")
@@ -38,15 +33,10 @@ class TestPreprocessStartColon:
         assert "# Comment" in result
         assert "START(PlanExecute) => plan_step" in result
 
-    def test_start_parens_still_unchanged(self):
-        spec = "START(ExplicitName) => first_node"
-        result = preprocess_start_syntax(spec, "test")
-        assert result == spec
-
     def test_bare_start_still_works(self):
         spec = "START -> first_node"
         result = preprocess_start_syntax(spec, "my_graph")
-        assert "START(MyGraphState) -> first_node" in result
+        assert "START(MyGraphState) => first_node" in result
 
 
 class TestStartColonIntegration:

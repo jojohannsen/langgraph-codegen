@@ -58,7 +58,7 @@ def test_start_node_not_first():
     # This is a comment
     node1 => node2
 
-    START(State) => node1
+    START:State -> node1
 
     node2
         => END
@@ -73,8 +73,8 @@ def test_valid_start_node():
     """Test valid START node passes validation"""
     graph_spec = """
     # This is a comment
-    START(State) => node1
-    
+    START:State -> node1
+
     node1
         => END
     """

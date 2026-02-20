@@ -88,14 +88,14 @@ def expand_chains(graph_spec):
 
 
 def preprocess_start_syntax(graph_spec, graph_name):
-    """Normalise the first line of a graph spec to ``START(GeneratedName) => dest``.
+    """Normalise the START line to internal ``START(ClassName) => dest`` form.
 
-    Handles four cases:
-    1. ``START:ClassName -> node`` — rewrites to ``START(ClassName) => node``.
-    2. Bare ``START -> node`` / ``START => node`` — injects generated class name.
-    3. Old ``ClassName -> node`` syntax — rewrites to ``START(ClassName) => node``
-       and replaces ``ClassName.`` references with ``GeneratedName.`` throughout.
-    4. ``START(Explicit) => node`` — returned unchanged.
+    Accepted user-facing forms:
+    1. ``START:ClassName -> dest`` — explicit state class
+    2. ``START -> dest`` — class name derived from graph_name
+
+    Internal passthrough:
+    3. ``START(ClassName) => dest`` — already in internal form
     """
     lines = graph_spec.split('\n')
     for i, line in enumerate(lines):
@@ -104,32 +104,24 @@ def preprocess_start_syntax(graph_spec, graph_name):
             continue
         # First meaningful line
         if not stripped.startswith('START'):
-            # Old ClassName -> syntax: e.g. "State -> orchestrator"
-            # Detect arrow and rewrite to START(ClassName) => destination
-            # The original class name is preserved as-is.
-            for arrow in ['->', '=>', '→']:
-                if arrow in stripped:
-                    old_class = stripped.split(arrow)[0].strip()
-                    destination = stripped.split(arrow)[1].strip()
-                    lines[i] = f'START({old_class}) => {destination}'
-                    return '\n'.join(lines)
-            return graph_spec
+            return graph_spec  # No START found — return unchanged
         if '(' in stripped:
-            # Already has parentheses — leave as-is
-            return graph_spec
-        # START:ClassName syntax: e.g. "START:MyState -> node"
-        if ':' in stripped.split('->')[0].split('=>')[0]:
-            start_part = stripped.split('->')[0].split('=>')[0].strip()
+            return graph_spec  # Already internal form
+        if ':' in stripped.split('->')[0]:
+            # START:ClassName -> dest
+            start_part = stripped.split('->')[0].strip()
             class_name = start_part.split(':', 1)[1].strip()
-            for arrow in ['->', '=>', '→']:
-                if arrow in stripped:
-                    destination = stripped.split(arrow, 1)[1].strip()
-                    lines[i] = f'START({class_name}) => {destination}'
-                    return '\n'.join(lines)
-        # Bare START without parens — inject generated class name
-        state_class = snake_to_state_class(graph_name)
-        lines[i] = line.replace('START', f'START({state_class})', 1)
-        return '\n'.join(lines)
+            if '->' in stripped:
+                destination = stripped.split('->', 1)[1].strip()
+                lines[i] = f'START({class_name}) => {destination}'
+                return '\n'.join(lines)
+        # Bare START -> dest
+        if '->' in stripped:
+            state_class = snake_to_state_class(graph_name)
+            destination = stripped.split('->', 1)[1].strip()
+            lines[i] = f'START({state_class}) => {destination}'
+            return '\n'.join(lines)
+        return graph_spec
     return graph_spec
 
 def transform_graph_spec(graph_spec: str) -> str:
@@ -985,9 +977,7 @@ def validate_graph(graph_spec: str) -> Dict[str, Any]:
     has_start = first_non_comment and (
         first_non_comment.startswith('START(')
         or first_non_comment.startswith('START:')
-        or first_non_comment.startswith('START =>')
         or first_non_comment.startswith('START ->')
-        or first_non_comment.startswith('START→')
     )
     if not has_start:
         errors.append(ERROR_START_NODE_NOT_FOUND)
@@ -1000,6 +990,8 @@ def validate_graph(graph_spec: str) -> Dict[str, Any]:
     
     try:
         if not errors:  # Only try to parse if no errors so far
+            graph_spec = expand_chains(graph_spec)
+            graph_spec = preprocess_start_syntax(graph_spec, "graph")
             graph_dict, start_node = parse_graph_spec(graph_spec)
             
             # Convert dictionary to Graph instance

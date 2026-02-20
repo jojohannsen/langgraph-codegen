@@ -9,6 +9,7 @@ try:
         gen_graph, gen_nodes, gen_state, gen_conditions,
         gen_worker_functions, gen_assignment_functions,
         find_worker_functions, parse_graph_spec,
+        expand_chains, preprocess_start_syntax,
     )
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -16,40 +17,46 @@ except ImportError:
         gen_graph, gen_nodes, gen_state, gen_conditions,
         gen_worker_functions, gen_assignment_functions,
         find_worker_functions, parse_graph_spec,
+        expand_chains, preprocess_start_syntax,
     )
 
 
-SIMPLE_SPEC = """\
-START(State) => process_input
+def _prep(spec, graph_name="test"):
+    spec = expand_chains(spec)
+    return preprocess_start_syntax(spec, graph_name)
+
+
+SIMPLE_SPEC = _prep("""\
+START:State -> process_input
 process_input => validate_data
 validate_data => END
-"""
+""")
 
-CONDITIONAL_SPEC = """\
-START(PlanExecute) => plan_step
+CONDITIONAL_SPEC = _prep("""\
+START:PlanExecute -> plan_step
 plan_step => execute_step
 execute_step => replan_step
 replan_step
   is_done => END
   => execute_step
-"""
+""")
 
-WORKER_SPEC = """\
-START(OrchestratorState) => orchestrator
+WORKER_SPEC = _prep("""\
+START:OrchestratorState -> orchestrator
 orchestrator -> llm_call(OrchestratorState.sections)
 llm_call => synthesizer
 synthesizer => END
-"""
+""")
 
-MANY_NODES_SPEC = """\
-START(BigState) => node_a
+MANY_NODES_SPEC = _prep("""\
+START:BigState -> node_a
 node_a => node_b
 node_b => node_c
 node_c => node_d
 node_d => node_e
 node_e => node_f
 node_f => END
-"""
+""")
 
 
 def _build_nodes_file_content(basename, graph_spec):
@@ -179,7 +186,7 @@ def test_many_nodes_uses_parenthesized_import():
 def test_stdout_has_no_cross_file_imports(tmp_path):
     """--stdout mode should NOT contain cross-file import lines."""
     spec_file = tmp_path / "simple.lg"
-    spec_file.write_text(SIMPLE_SPEC)
+    spec_file.write_text("START:State -> process_input\nprocess_input => validate_data\nvalidate_data => END\n")
     result = subprocess.run(
         [sys.executable, "-m", "langgraph_codegen.lgcodegen", str(spec_file), "--stdout"],
         capture_output=True, text=True,
