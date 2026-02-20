@@ -9,7 +9,8 @@ from langgraph_codegen.gen_graph import (
     gen_graph, gen_nodes, gen_state,
     gen_conditions, gen_worker_functions, gen_assignment_functions,
     find_worker_functions, gen_main, gen_readme,
-    parse_graph_spec, list_examples, get_example_path
+    parse_graph_spec, parse_state_section, preprocess_start_syntax,
+    list_examples, get_example_path
 )
 
 
@@ -39,6 +40,7 @@ def main():
     parser.add_argument('--graph', action='store_true', help='Generate only graph builder')
     parser.add_argument('--stdout', action='store_true', help='Print to stdout instead of writing files')
     parser.add_argument('-o', '--output-dir', help='Output directory (default: basename of input file)')
+    parser.add_argument('--show', action='store_true', help='Show the content of the graph spec and exit')
     parser.add_argument('--verify', action='store_true',
                         help='Verify generated files execute without import errors')
     args = parser.parse_args()
@@ -60,7 +62,28 @@ def main():
         from_example = 'data/examples' in resolved
 
     graph_spec = input_path.read_text()
+
+    if args.show:
+        print(graph_spec, end='')
+        sys.exit(0)
+
     basename = input_path.stem
+
+    # 1. Extract STATE section first (before preprocessing)
+    state_class_name, state_fields, graph_spec = parse_state_section(graph_spec)
+
+    # 2. Preprocess START syntax on the graph-only part
+    graph_spec = preprocess_start_syntax(graph_spec, basename)
+
+    # 3. If STATE gave us a class name, ensure START uses it
+    if state_class_name:
+        import re
+        # Replace START(Whatever) with STATE class name, or bare START
+        graph_spec = re.sub(
+            r'START\([^)]*\)',
+            f'START({state_class_name})',
+            graph_spec
+        )
 
     # Determine what to generate (default = all)
     generate_all = not (args.state or args.nodes or args.graph)
@@ -87,9 +110,10 @@ def main():
     # Generate requested sections
     sections = {}
     if args.state or generate_all:
-        sections['state'] = gen_state(graph_spec)
+        sections['state'] = gen_state(graph_spec, state_fields=state_fields if state_fields else None,
+                                      state_class_name=state_class_name)
     if args.nodes or generate_all:
-        sections['nodes'] = gen_nodes(graph_dict)
+        sections['nodes'] = gen_nodes(graph_dict, worker_func_names=worker_func_names)
     if args.graph or generate_all:
         parts = []
         conditions = gen_conditions(graph_spec)

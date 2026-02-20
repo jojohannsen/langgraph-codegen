@@ -643,46 +643,153 @@ def gen_assignment_functions(graph_spec):
     
     return result + "\n".join(implementations)
 
+# --- STATE section parsing and generation ---
+
+TYPE_REDUCERS = {'list': 'add_to_list', 'int': 'add_int'}
+TYPE_DEFAULTS = {'list': '[]', 'int': '0', 'str': "''", 'dict': '{}', 'bool': 'False', 'float': '0.0'}
+
+DEFAULT_STATE_FIELDS = [('nodes_visited', 'list[str]'), ('counter', 'int')]
+
+
+def parse_state_section(graph_spec):
+    """Extract STATE section from graph spec.
+
+    Returns (class_name, fields, remaining_spec).
+    - class_name: str or None
+    - fields: list of (field_name, field_type)
+    - remaining_spec: graph spec with STATE section removed
+    """
+    lines = graph_spec.split('\n')
+    state_line_idx = None
+
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith('STATE:') and not line[0].isspace():
+            state_line_idx = i
+            break
+
+    if state_line_idx is None:
+        return (None, [], graph_spec)
+
+    # Extract class name from the STATE: line
+    class_name = lines[state_line_idx].split(':', 1)[1].strip()
+
+    # Collect field lines
+    fields = []
+    end_idx = state_line_idx + 1
+    for j in range(state_line_idx + 1, len(lines)):
+        stripped = lines[j].strip()
+        # Stop at blank line, START, or arrow
+        if not stripped:
+            end_idx = j
+            break
+        if stripped.startswith('START') or '=>' in stripped or '->' in stripped:
+            end_idx = j
+            break
+        if stripped.startswith('#'):
+            end_idx = j + 1
+            continue
+        # Parse field: name: type
+        if ':' in stripped:
+            name, ftype = stripped.split(':', 1)
+            fields.append((name.strip(), ftype.strip()))
+        end_idx = j + 1
+
+    # Build remaining spec without STATE section
+    remaining_lines = lines[:state_line_idx] + lines[end_idx:]
+    remaining_spec = '\n'.join(remaining_lines)
+
+    return (class_name, fields, remaining_spec)
+
+
+def type_to_reducer(field_type):
+    """Return the reducer function name for a field type, or None."""
+    base = field_type.split('[')[0]
+    return TYPE_REDUCERS.get(base)
+
+
+def type_to_default(field_type):
+    """Return the default value string for a field type."""
+    base = field_type.split('[')[0]
+    return TYPE_DEFAULTS.get(base, 'None')
+
+
+def gen_state_class(state_class, fields, is_default=False):
+    """Generate state class code from a list of (field_name, field_type) tuples.
+
+    Only emits reducer functions that are actually used by the fields.
+    When is_default=True, adds '# default field' comments.
+    """
+    # Determine which reducers are needed
+    needed_reducers = set()
+    for _name, ftype in fields:
+        r = type_to_reducer(ftype)
+        if r:
+            needed_reducers.add(r)
+
+    parts = [f"\n# Graph State: {state_class}", "from typing import Annotated, TypedDict\n"]
+
+    # Emit only needed reducer functions
+    if 'add_to_list' in needed_reducers:
+        parts.append('def add_to_list(a=None, b=""):\n    return (a if a is not None else []) + ([b] if not isinstance(b, list) else b)\n')
+    if 'add_int' in needed_reducers:
+        parts.append('def add_int(a, b):\n    if b == 0: return 0\n    return b+1 if a==b else b\n')
+
+    # Build class body
+    class_lines = [f"class {state_class}(TypedDict):"]
+    for name, ftype in fields:
+        reducer = type_to_reducer(ftype)
+        comment = "  # default field" if is_default else ""
+        if reducer:
+            class_lines.append(f"    {name}: Annotated[{ftype}, {reducer}]{comment}")
+        else:
+            class_lines.append(f"    {name}: {ftype}{comment}")
+    parts.append('\n'.join(class_lines) + '\n')
+
+    # Build initialize_state()
+    init_items = []
+    for name, ftype in fields:
+        init_items.append(f"'{name}': {type_to_default(ftype)}")
+    init_body = ', '.join(init_items)
+    parts.append(f"def initialize_state():\n    return {{ {init_body} }}\n")
+
+    return '\n'.join(parts)
+
+
 def mock_state(state_class, extra_fields=None):
-    extra_field_lines = ""
-    extra_init_lines = ""
+    """Backward-compatible wrapper around gen_state_class using default fields."""
+    fields = list(DEFAULT_STATE_FIELDS)
     if extra_fields:
+        existing_names = {f[0] for f in fields}
         for field_name, field_type in extra_fields:
-            extra_field_lines += f"\n    {field_name}: {field_type}"
-            extra_init_lines += f", '{field_name}': []"
-    result = f"""
-# Graph State: {state_class}
-from typing import Annotated, TypedDict
+            if field_name not in existing_names:
+                fields.append((field_name, field_type))
+    return gen_state_class(state_class, fields, is_default=True)
 
-def add_str_to_list(a=None, b=""):
-    return (a if a is not None else []) + ([b] if not isinstance(b, list) else b)
-
-def add_int(a, b):
-    if b == 0: return 0
-    return b+1 if a==b else b
-
-class {state_class}(TypedDict):
-    nodes_visited: Annotated[list[str], add_str_to_list]
-    counter: Annotated[int, add_int]{extra_field_lines}
-
-def initialize_state():
-    return {{ 'nodes_visited': [], 'counter': 0{extra_init_lines} }}
-"""
-    return result
-
-def gen_state(graph_spec, state_class_file=None):
+def gen_state(graph_spec, state_class_file=None, state_fields=None, state_class_name=None):
     graph, start_node = parse_graph_spec(graph_spec)
-    state_class = graph[start_node]["state"]
+    state_class = state_class_name or graph[start_node]["state"]
     if state_class_file:
         return f"from {state_class_file.split('.')[0]} import {state_class}"
+
+    # Extract worker-pattern extra fields (e.g., State.sections)
+    worker_extra = []
+    for func_name, param in find_worker_functions(graph_spec):
+        if '.' in param:
+            field_name = param.split('.')[1]
+            worker_extra.append((field_name, 'list'))
+
+    if state_fields:
+        # Custom STATE section — add worker fields only if missing
+        fields = list(state_fields)
+        existing_names = {f[0] for f in fields}
+        for field_name, field_type in worker_extra:
+            if field_name not in existing_names:
+                fields.append((field_name, field_type))
+        return gen_state_class(state_class, fields, is_default=False)
     else:
-        # Extract extra fields from worker function patterns (e.g., State.sections)
-        extra_fields = []
-        for func_name, param in find_worker_functions(graph_spec):
-            if '.' in param:
-                field_name = param.split('.')[1]
-                extra_fields.append((field_name, 'list'))
-        return mock_state(state_class, extra_fields=extra_fields if extra_fields else None)
+        # Default fields
+        return mock_state(state_class, extra_fields=worker_extra if worker_extra else None)
 
 
     
