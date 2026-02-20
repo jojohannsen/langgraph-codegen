@@ -63,7 +63,7 @@ done
   echo ""
 
   for name in "${EXAMPLES[@]}"; do
-    echo "## $name"
+    echo "## $name.lgraph"
     echo ""
     LGRAPH="$ROOT/$name/$name.lgraph"
     if [[ -f "$LGRAPH" ]]; then
