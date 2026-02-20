@@ -162,3 +162,20 @@ cython_debug/
 #.idea/
 .vscode/
 .aider*
+
+# Generated example output (from ./testit)
+bea_agent/
+bea_evaluator_optimizer/
+bea_orchestrator_worker/
+bea_parallelization/
+bea_prompt_chaining/
+define_state/
+guard/
+lgcodegen/
+multi_agent_collaboration/
+plan_and_execute/
+rag/
+react_agent/
+simple/
+supervisor/
+run.md

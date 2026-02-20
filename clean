@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+EXAMPLES=(
+  bea_agent
+  bea_evaluator_optimizer
+  bea_orchestrator_worker
+  bea_parallelization
+  bea_prompt_chaining
+  define_state
+  guard
+  lgcodegen
+  multi_agent_collaboration
+  plan_and_execute
+  rag
+  react_agent
+  simple
+  supervisor
+)
+
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+
+for name in "${EXAMPLES[@]}"; do
+  rm -rf "$ROOT/$name"
+done
+
+rm -f "$ROOT/run.md"
+
+echo "Cleaned ${#EXAMPLES[@]} example folders and run.md."
