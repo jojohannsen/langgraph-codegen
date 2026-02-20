@@ -37,7 +37,7 @@ def expand_chains(graph_spec):
 
     ``a -> b -> c -> d`` becomes three lines: ``a -> b``, ``b -> c``, ``c -> d``.
     ``START:State -> a -> b`` becomes ``START:State -> a``, ``a -> b``.
-    ``a -> b, c -> d`` (fan-out/fan-in) becomes ``a -> b, c``, ``b -> d``, ``c -> d``.
+    ``a -> b, c -> d`` (fan-out/fan-in) becomes ``a -> b``, ``a -> c``, ``b -> d``, ``c -> d``.
     ``a -> worker(field) -> b`` becomes ``a -> worker(field)``, ``worker -> b``.
     ``a -> b -> cond ? x : y`` becomes ``a -> b``, ``b -> cond ? x : y``.
     Lines with 0 or 1 arrows pass through unchanged.
@@ -52,13 +52,23 @@ def expand_chains(graph_spec):
 
         # Split on -> to get segments
         segments = stripped.split('->')
-        if len(segments) <= 2:
-            # 0 or 1 arrows — pass through unchanged
-            result_lines.append(line)
+        parts = [s.strip() for s in segments]
+
+        def _has_bare_commas(s):
+            """Return True if s contains commas outside parentheses."""
+            return ',' in s and '(' not in s
+
+        # Single arrow — check for bare commas in destination to split
+        if len(segments) == 2:
+            src, dst = parts[0], parts[1]
+            if _has_bare_commas(dst):
+                for node in [n.strip() for n in dst.split(',')]:
+                    result_lines.append(f"{src} -> {node}")
+            else:
+                result_lines.append(line)
             continue
 
         # Multiple arrows — expand into individual edges
-        parts = [s.strip() for s in segments]
         i = 0
         while i < len(parts) - 1:
             src = parts[i]
@@ -73,18 +83,21 @@ def expand_chains(graph_spec):
             if i > 0 and '|' in src:
                 src = src.split('|')[1].strip()
 
-            # If dst contains commas and there's a next segment (fan-out/fan-in),
-            # handle fan-in by emitting edges from each comma-target to the next part
-            if ',' in dst and i + 2 < len(parts):
+            # If dst contains bare commas (not inside parens), split into individual fan-out edges
+            if _has_bare_commas(dst):
                 fan_nodes = [n.strip() for n in dst.split(',')]
-                next_dst = parts[i + 2]
-                # Emit fan-out: src -> comma group
-                result_lines.append(f"{src} -> {dst}")
-                # Emit fan-in: each node -> next_dst
+                # Emit individual fan-out edges: src -> each node
                 for node in fan_nodes:
-                    result_lines.append(f"{node} -> {next_dst}")
-                # Continue from the fan-in target
-                i += 2
+                    result_lines.append(f"{src} -> {node}")
+                if i + 2 < len(parts):
+                    # Fan-in: each node -> next destination
+                    next_dst = parts[i + 2]
+                    for node in fan_nodes:
+                        result_lines.append(f"{node} -> {next_dst}")
+                    # Skip the fan-in target
+                    i += 2
+                else:
+                    i += 1
             else:
                 result_lines.append(f"{src} -> {dst}")
                 i += 1
@@ -93,7 +106,7 @@ def expand_chains(graph_spec):
 
 
 def preprocess_start_syntax(graph_spec, graph_name):
-    """Normalise the START line to internal ``START(ClassName) => dest`` form.
+    """Normalise START lines to internal ``START(ClassName) => dest`` form.
 
     Accepted user-facing forms:
     1. ``START:ClassName -> dest`` — explicit state class
@@ -101,17 +114,20 @@ def preprocess_start_syntax(graph_spec, graph_name):
 
     Internal passthrough:
     3. ``START(ClassName) => dest`` — already in internal form
+
+    Handles multiple START lines (from fan-out expansion).
     """
     lines = graph_spec.split('\n')
+    class_name = None
+    changed = False
     for i, line in enumerate(lines):
         stripped = line.strip()
         if not stripped or stripped.startswith('#'):
             continue
-        # First meaningful line
         if not stripped.startswith('START'):
-            return graph_spec  # No START found — return unchanged
+            continue
         if '(' in stripped:
-            return graph_spec  # Already internal form
+            continue  # Already internal form
         if ':' in stripped.split('->')[0]:
             # START:ClassName -> dest
             start_part = stripped.split('->')[0].strip()
@@ -119,14 +135,16 @@ def preprocess_start_syntax(graph_spec, graph_name):
             if '->' in stripped:
                 destination = stripped.split('->', 1)[1].strip()
                 lines[i] = f'START({class_name}) => {destination}'
-                return '\n'.join(lines)
-        # Bare START -> dest
-        if '->' in stripped:
-            state_class = snake_to_state_class(graph_name)
+                changed = True
+        elif '->' in stripped:
+            # Bare START -> dest
+            if class_name is None:
+                class_name = snake_to_state_class(graph_name)
             destination = stripped.split('->', 1)[1].strip()
-            lines[i] = f'START({state_class}) => {destination}'
-            return '\n'.join(lines)
-        return graph_spec
+            lines[i] = f'START({class_name}) => {destination}'
+            changed = True
+    if changed:
+        return '\n'.join(lines)
     return graph_spec
 
 def normalize_spec(graph_spec: str) -> str:
@@ -159,6 +177,18 @@ def normalize_spec(graph_spec: str) -> str:
             transformed_lines.append(f"START({state_class_name})")
             transformed_lines.append(f"  => {start_node_name}")
             continue
+        # Additional START edges (from fan-out expansion)
+        if state_class_name is not None and line.strip().startswith("START"):
+            stripped_line = line.strip()
+            if "=>" in stripped_line:
+                dest = stripped_line.split("=>")[1].strip()
+            elif "->" in stripped_line:
+                dest = stripped_line.split("->")[1].strip()
+            else:
+                dest = None
+            if dest:
+                transformed_lines.append(f"  => {dest}")
+                continue
         # if we have a line in this format:
         # "node_name -> fn_name(node_name2, node_name3, END)"
         # we need to transform that into:
@@ -1122,7 +1152,7 @@ def get_example_path(filename):
     """
     try:
         base_name = filename.split('.')[0]
-        extensions = ['.lgraph', '.graph', '.txt']
+        extensions = ['.lgraphx', '.lgraph', '.graph', '.txt']
 
         # 1. Check cwd with extensions
         for ext in extensions:

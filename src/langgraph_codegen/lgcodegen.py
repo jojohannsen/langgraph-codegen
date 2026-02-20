@@ -68,15 +68,17 @@ def main():
         sys.exit(0)
 
     basename = input_path.stem
+    is_expanded = input_path.suffix == '.lgraphx'
 
     # 1. Extract STATE section first (before preprocessing)
     state_class_name, state_fields, graph_spec = parse_state_section(graph_spec)
 
-    # 2. Expand chained arrows (a -> b -> c) into individual edges
-    graph_spec = expand_chains(graph_spec)
+    if not is_expanded:
+        # 2. Expand chained arrows (a -> b -> c) into individual edges
+        graph_spec = expand_chains(graph_spec)
 
-    # 3. Preprocess START syntax on the graph-only part
-    graph_spec = preprocess_start_syntax(graph_spec, basename)
+        # 3. Preprocess START syntax on the graph-only part
+        graph_spec = preprocess_start_syntax(graph_spec, basename)
 
     # 4. If STATE gave us a class name, ensure START uses it
     if state_class_name:
@@ -146,6 +148,11 @@ def main():
             dest = output_dir / f"{basename}{input_path.suffix}"
             shutil.copy2(input_path, dest)
             print(f"Copied {input_path.name} to {dest}")
+
+        # Write expanded intermediate format
+        lgraphx_path = output_dir / f"{basename}.lgraphx"
+        lgraphx_path.write_text(graph_spec + '\n')
+        print(f"Wrote {lgraphx_path}")
 
         for name, code in sections.items():
             filepath = output_dir / f"{basename}_{name}.py"

@@ -50,19 +50,23 @@ class TestStartChains:
 class TestFanOutFanIn:
     def test_basic_fan_out_fan_in(self):
         result = expand_chains("a -> b, c -> d")
-        assert "a -> b, c" in result
+        assert "a -> b" in result
+        assert "a -> c" in result
         assert "b -> d" in result
         assert "c -> d" in result
 
     def test_fan_out_to_end(self):
         result = expand_chains("a -> b, c -> END")
-        assert "a -> b, c" in result
+        assert "a -> b" in result
+        assert "a -> c" in result
         assert "b -> END" in result
         assert "c -> END" in result
 
     def test_fan_out_with_continuation(self):
         result = expand_chains("START:State -> call_llm_1, call_llm_2, call_llm_3 -> aggregator -> END")
-        assert "START:State -> call_llm_1, call_llm_2, call_llm_3" in result
+        assert "START:State -> call_llm_1" in result
+        assert "START:State -> call_llm_2" in result
+        assert "START:State -> call_llm_3" in result
         assert "call_llm_1 -> aggregator" in result
         assert "call_llm_2 -> aggregator" in result
         assert "call_llm_3 -> aggregator" in result
@@ -70,10 +74,19 @@ class TestFanOutFanIn:
 
     def test_three_fan_out(self):
         result = expand_chains("a -> x, y, z -> b")
-        assert "a -> x, y, z" in result
+        assert "a -> x" in result
+        assert "a -> y" in result
+        assert "a -> z" in result
         assert "x -> b" in result
         assert "y -> b" in result
         assert "z -> b" in result
+
+    def test_fan_out_no_fan_in(self):
+        """Fan-out at end of chain (no subsequent segment) also splits."""
+        result = expand_chains("a -> b, c")
+        assert "a -> b" in result
+        assert "a -> c" in result
+        assert "b, c" not in result
 
 
 class TestWorkerChains:
