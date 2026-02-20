@@ -1,3 +1,0 @@
-# Orchestrator Worker
-START:State -> orchestrator
-orchestrator -> llm_call(sections) -> synthesizer -> END

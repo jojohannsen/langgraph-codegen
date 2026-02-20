@@ -34,7 +34,7 @@ def main():
         epilog=epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument('input_file', help='Path to .lg, .graph, or .txt DSL file, or a built-in example name')
+    parser.add_argument('input_file', help='Path to .lgraph, .graph, or .txt DSL file, or a built-in example name')
     parser.add_argument('--state', action='store_true', help='Generate only state class')
     parser.add_argument('--nodes', action='store_true', help='Generate only node functions')
     parser.add_argument('--graph', action='store_true', help='Generate only graph builder')

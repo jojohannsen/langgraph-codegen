@@ -226,7 +226,7 @@ def test_gen_state_default_backward_compat():
 
 def test_worker_fields_added_when_missing():
     spec = _prep("""START:OrcState -> orchestrator
-orchestrator -> llm_call(OrcState.sections)
+orchestrator -> OrcState.sections | llm_call
 llm_call => synthesize
 synthesize => END
 """)
@@ -240,7 +240,7 @@ synthesize => END
 
 def test_worker_fields_not_duplicated():
     spec = _prep("""START:OrcState -> orchestrator
-orchestrator -> llm_call(OrcState.sections)
+orchestrator -> OrcState.sections | llm_call
 llm_call => synthesize
 synthesize => END
 """)

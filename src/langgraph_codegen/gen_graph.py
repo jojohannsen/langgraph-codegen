@@ -67,6 +67,10 @@ def expand_chains(graph_spec):
             # use just the function name as the source node
             if i > 0 and '(' in src and ')' in src:
                 src = src.split('(')[0].strip()
+            # For the source: if it's pipe notation like field | func,
+            # use just the func name as the source node
+            if i > 0 and '|' in src:
+                src = src.split('|')[1].strip()
 
             # If dst contains commas and there's a next segment (fan-out/fan-in),
             # handle fan-in by emitting edges from each comma-target to the next part
@@ -161,32 +165,26 @@ def transform_graph_spec(graph_spec: str) -> str:
             # Determine which arrow type to use for splitting
             arrow = "->" if "->" in line else "→"
             node_name, destinations = line.split(arrow)
-            if "(" in line:
-                # if fn call parameter is {state_class_name}.{field_name}, we need to extract that
-                fn_params = line.split("(")[1].split(")")[0].strip()
+            if "|" in destinations:
+                # Worker pipe: field | func
+                field_name, fn_name = [s.strip() for s in destinations.split("|")]
+                # Strip State. prefix if present
+                if '.' in field_name and field_name.split('.')[0].strip() == state_class_name:
+                    field_name = field_name.split('.')[1].strip()
+                assignment_function_name = f"assign_workers_{fn_name}"
+                transformed_lines.append(f"{node_name}")
+                transformed_lines.append(f"  {assignment_function_name} => {fn_name}")
+                transformed_lines.append(f"# WORKER_ASSIGNMENT: {assignment_function_name}({field_name}) -> {fn_name}")
+                continue
+            elif "(" in line:
+                # All func(...) calls are switch functions
+                node_name = line.split(arrow)[0].strip()
                 fn_name = line.split(arrow)[1].split("(")[0].strip()
-                # Single-param call = worker function (plain field or State.field)
-                param_list = [p.strip() for p in fn_params.split(',') if p.strip()]
-                is_worker = len(param_list) == 1
-                if is_worker:
-                    # Extract field name: strip State. prefix if present
-                    if '.' in fn_params and fn_params.split('.')[0].strip() == state_class_name:
-                        iterable_field_name = fn_params.split('.')[1].strip()
-                    else:
-                        iterable_field_name = fn_params.strip()
-                    assignment_function_name = f"assign_workers_{fn_name}"
-                    transformed_lines.append(f"{node_name}")
-                    transformed_lines.append(f"  {assignment_function_name} => {fn_name}")
-                    # Store the worker assignment info for later code generation
-                    transformed_lines.append(f"# WORKER_ASSIGNMENT: {assignment_function_name}({iterable_field_name}) -> {fn_name}")
-                else:
-                    node_name = line.split(arrow)[0].strip()
-                    fn_name = line.split(arrow)[1].split("(")[0].strip()
-                    fn_params = line.split("(")[1].split(")")[0].strip()
-                    transformed_lines.append(f"{node_name}")
-                    for fn_param in fn_params.split(","):
-                        transformed_lines.append(f"  {fn_name}_{fn_param.strip()} => {fn_param.strip()}")
-                    transformed_lines.append(f"# SWITCH: {fn_name}({fn_params})")
+                fn_params = line.split("(")[1].split(")")[0].strip()
+                transformed_lines.append(f"{node_name}")
+                for fn_param in fn_params.split(","):
+                    transformed_lines.append(f"  {fn_name}_{fn_param.strip()} => {fn_param.strip()}")
+                transformed_lines.append(f"# SWITCH: {fn_name}({fn_params})")
             elif "?" in destinations:
                 dest = destinations.strip()
                 fn_name = dest.split("?")[0].strip()
@@ -562,29 +560,21 @@ def human_choice(condition, choices):
 
 def find_worker_functions(graph_spec):
     """Extract Worker Functions from the original graph specification.
-    
-    Worker Functions are functions with a single parameter like:
-    orchestrator -> llm_call(State.sections)
+
+    Worker Functions use pipe notation: field | func
+    e.g. orchestrator -> sections | llm_call
     """
     worker_functions = []
     for line in graph_spec.splitlines():
         line = line.split('#')[0].strip()  # Remove comments
-        if ('->' in line or '→' in line) and '(' in line and ')' in line:
-            # Determine which arrow type to use for splitting
+        if ('->' in line or '→' in line) and '|' in line:
             arrow = '->' if '->' in line else '→'
             parts = line.split(arrow)
             if len(parts) == 2:
-                destination_part = parts[1].strip()
-                if '(' in destination_part:
-                    func_name = destination_part.split('(')[0].strip()
-                    params_part = destination_part.split('(')[1].split(')')[0].strip()
-                    
-                    if params_part:
-                        param_count = len([p.strip() for p in params_part.split(',') if p.strip()])
-                        if param_count == 1:
-                            # This is a Worker Function
-                            param = params_part.strip()
-                            worker_functions.append((func_name, param))
+                dest = parts[1].strip()
+                if '|' in dest:
+                    field_name, func_name = [s.strip() for s in dest.split('|')]
+                    worker_functions.append((func_name, field_name))
     return worker_functions
 
 def gen_worker_function(func_name, param, state_type):
@@ -1049,7 +1039,7 @@ def list_examples():
     examples_dir = Path(os.path.dirname(langgraph_codegen.__file__)) / 'data' / 'examples'
     names = set()
     for f in examples_dir.iterdir():
-        if f.suffix in ('.lg', '.graph', '.txt'):
+        if f.suffix in ('.lgraph', '.graph', '.txt'):
             names.add(f.stem)
     return sorted(names)
 
@@ -1064,7 +1054,7 @@ def get_example_path(filename):
     """
     try:
         base_name = filename.split('.')[0]
-        extensions = ['.lg', '.graph', '.txt']
+        extensions = ['.lgraph', '.graph', '.txt']
 
         # 1. Check cwd with extensions
         for ext in extensions:

@@ -1,14 +1,14 @@
 # Graph for the lgcodegen tool itself
 START -> read_graph -> process_lines -> prepare_for_next_prompt_edge
 prepare_for_next_prompt_edge -> build_prompt_edge
-build_prompt_edge -> is_comment(add_comment, add_edge)
+build_prompt_edge -> is_comment ? add_comment : add_edge
 add_comment -> build_prompt_edge
-add_edge -> is_first(start_graph, process_prompt_edge)
+add_edge -> is_first ? start_graph : process_prompt_edge
 process_prompt_edge -> process_prompt -> process_edge
 process_edge -> classify_edge(unknown_edge_syntax, start_graph, unconditional_edge, conditional_edge, worker_edge)
 unknown_edge_syntax -> END
 error_exit -> END
-start_graph -> state_defined(prepare_for_next_prompt_edge, error_exit)
-unconditional_edge -> is_valid(prepare_for_next_prompt_edge, error_exit)
-conditional_edge -> is_valid(prepare_for_next_prompt_edge, error_exit)
-worker_edge -> is_valid(prepare_for_next_prompt_edge, error_exit)
+start_graph -> state_defined ? prepare_for_next_prompt_edge : error_exit
+unconditional_edge -> is_valid ? prepare_for_next_prompt_edge : error_exit
+conditional_edge -> is_valid ? prepare_for_next_prompt_edge : error_exit
+worker_edge -> is_valid ? prepare_for_next_prompt_edge : error_exit

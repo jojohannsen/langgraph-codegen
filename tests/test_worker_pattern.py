@@ -20,7 +20,7 @@ except ImportError:
 
 _ORCHESTRATOR_WORKER_SPEC_RAW = """\
 START:State -> orchestrator
-orchestrator -> llm_call(State.sections)
+orchestrator -> State.sections | llm_call
 llm_call -> synthesizer
 synthesizer -> END
 """
@@ -38,7 +38,7 @@ class TestFindWorkerFunctions:
     def test_finds_worker_pattern(self):
         workers = find_worker_functions(ORCHESTRATOR_WORKER_SPEC)
         assert len(workers) == 1
-        assert workers[0] == ("llm_call", "State.sections")
+        assert workers[0] == ("llm_call", "State.sections")  # pipe notation preserves raw field
 
     def test_no_workers_in_regular_spec(self):
         spec = _prep("START:State -> node1\nnode1 => END\n")
@@ -157,7 +157,7 @@ replan_step
 
 PLAIN_FIELD_SPEC = """\
 START:State -> orchestrator
-orchestrator -> llm_call(sections) -> synthesizer -> END
+orchestrator -> sections | llm_call -> synthesizer -> END
 """
 
 

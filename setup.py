@@ -12,7 +12,7 @@ setup(
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     package_data={
-        'langgraph_codegen': ['data/examples/*.lg', 'data/examples/*.graph', 'data/examples/*.txt'],
+        'langgraph_codegen': ['data/examples/*.lgraph', 'data/examples/*.graph', 'data/examples/*.txt'],
     },
     include_package_data=True,
     classifiers=[

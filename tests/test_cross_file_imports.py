@@ -43,7 +43,7 @@ replan_step
 
 WORKER_SPEC = _prep("""\
 START:OrchestratorState -> orchestrator
-orchestrator -> llm_call(OrchestratorState.sections)
+orchestrator -> OrchestratorState.sections | llm_call
 llm_call => synthesizer
 synthesizer => END
 """)
@@ -185,7 +185,7 @@ def test_many_nodes_uses_parenthesized_import():
 
 def test_stdout_has_no_cross_file_imports(tmp_path):
     """--stdout mode should NOT contain cross-file import lines."""
-    spec_file = tmp_path / "simple.lg"
+    spec_file = tmp_path / "simple.lgraph"
     spec_file.write_text("START:State -> process_input\nprocess_input => validate_data\nvalidate_data => END\n")
     result = subprocess.run(
         [sys.executable, "-m", "langgraph_codegen.lgcodegen", str(spec_file), "--stdout"],

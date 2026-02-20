@@ -55,7 +55,7 @@ replan_step
 
 _WORKER_SPEC_RAW = """\
 START:State -> orchestrator
-orchestrator -> llm_call(State.sections)
+orchestrator -> State.sections | llm_call
 llm_call -> synthesizer
 synthesizer -> END
 """
@@ -248,7 +248,7 @@ class TestWorkerPatternUnchanged:
     def test_worker_functions_found(self):
         workers = find_worker_functions(WORKER_SPEC)
         assert len(workers) == 1
-        assert workers[0] == ("llm_call", "State.sections")
+        assert workers[0] == ("llm_call", "State.sections")  # pipe notation preserves raw field
 
     def test_assignment_functions_found(self):
         transformed = transform_graph_spec(WORKER_SPEC)
@@ -278,7 +278,7 @@ replan_step -> is_done ? END : execute_step
 
 NEW_WORKER_SPEC = """\
 START:State -> orchestrator
-orchestrator -> llm_call(sections) -> synthesizer -> END
+orchestrator -> sections | llm_call -> synthesizer -> END
 """
 
 

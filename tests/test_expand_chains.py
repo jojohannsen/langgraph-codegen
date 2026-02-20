@@ -77,16 +77,22 @@ class TestFanOutFanIn:
 
 
 class TestWorkerChains:
-    def test_worker_chain(self):
-        result = expand_chains("a -> worker(field) -> b")
-        assert "a -> worker(field)" in result
+    def test_worker_pipe_chain(self):
+        result = expand_chains("a -> field | worker -> b")
+        assert "a -> field | worker" in result
         assert "worker -> b" in result
 
-    def test_worker_chain_to_end(self):
-        result = expand_chains("orchestrator -> llm_call(sections) -> synthesizer -> END")
-        assert "orchestrator -> llm_call(sections)" in result
+    def test_worker_pipe_chain_to_end(self):
+        result = expand_chains("orchestrator -> sections | llm_call -> synthesizer -> END")
+        assert "orchestrator -> sections | llm_call" in result
         assert "llm_call -> synthesizer" in result
         assert "synthesizer -> END" in result
+
+    def test_switch_at_end_of_chain(self):
+        """Switch func(a, b, c) works at end of a chain."""
+        result = expand_chains("a -> b -> route(x, y, z)")
+        assert "a -> b" in result
+        assert "b -> route(x, y, z)" in result
 
 
 class TestConditionalEndings:
@@ -139,8 +145,8 @@ class TestIntegrationWithPipeline:
         assert "format_prompt" in graph
         assert "generate" in graph
 
-    def test_worker_chain_through_pipeline(self):
-        spec = "START:State -> orchestrator\norchestrator -> llm_call(sections) -> synthesizer -> END"
+    def test_worker_pipe_chain_through_pipeline(self):
+        spec = "START:State -> orchestrator\norchestrator -> sections | llm_call -> synthesizer -> END"
         expanded = expand_chains(spec)
         preprocessed = preprocess_start_syntax(expanded, "test")
         graph, start_node = parse_graph_spec(preprocessed)

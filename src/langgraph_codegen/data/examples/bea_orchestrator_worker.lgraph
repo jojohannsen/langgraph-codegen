@@ -1,0 +1,3 @@
+# Orchestrator Worker
+START:State -> orchestrator
+orchestrator -> sections | llm_call -> synthesizer -> END

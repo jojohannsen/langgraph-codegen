@@ -1,4 +1,4 @@
 # Prompt Chaining
 START:State -> generate_joke
-generate_joke -> check_punchline(improve_joke, END)
+generate_joke -> check_punchline ? improve_joke : END
 improve_joke -> polish_joke -> END
