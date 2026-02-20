@@ -1093,9 +1093,9 @@ def validate_graph(graph_spec: str) -> Dict[str, Any]:
                     start_node_dest = start_edges[0]["destination"]
                 else:
                     errors.append("START node has no destination")
-                    solutions.append("Add a destination node after the START node using =>")
+                    solutions.append("Add a destination node after the START node using ->")
                     details.append(f"Found: START node without destination\n"
-                                f"Expected: START(<state_type>) => <destination_node>")
+                                f"Expected: START:<state_type> -> <destination_node>")
             
             # Set the actual start node (the destination of START)
             if start_node_dest:
@@ -1107,9 +1107,9 @@ def validate_graph(graph_spec: str) -> Dict[str, Any]:
                     graph.add_node(node_name)
                     if not node_data["edges"]:
                         errors.append(f"Node '{node_name}' has no outgoing edges")
-                        solutions.append(f"Add at least one destination for node '{node_name}' using =>")
+                        solutions.append(f"Add at least one destination for node '{node_name}' using ->")
                         details.append(f"Found: Node '{node_name}' without edges\n"
-                                    f"Expected: {node_name} => <destination>")
+                                    f"Expected: {node_name} -> <destination>")
                     for edge in node_data["edges"]:
                         destination = edge["destination"]
                         condition = edge["condition"]
@@ -1209,7 +1209,17 @@ def gen_main(basename, state_class):
     return f"""from {basename}_graph import {basename}
 from {basename}_state import initialize_state
 
+def save_graph_image():
+    try:
+        img_data = {basename}.get_graph().draw_mermaid_png()
+        with open("{basename}.png", "wb") as f:
+            f.write(img_data)
+        print(f"Wrote {basename}.png")
+    except Exception as e:
+        print(f"Could not generate graph image: {{e}}")
+
 def main():
+    save_graph_image()
     config = {{"configurable": {{"thread_id": "1"}}}}
     initial_state = initialize_state()
     result = {basename}.invoke(initial_state, config=config)
@@ -1220,17 +1230,29 @@ if __name__ == "__main__":
 """
 
 
-def gen_readme(basename, graph_spec, input_filename, folder_name=None):
-    """Generate a README.md with graph spec and run instructions."""
+def gen_readme(basename, concise_spec, expanded_spec, folder_name=None):
+    """Generate a README.md with graph image, specs, and run instructions."""
     folder = folder_name or basename
     return f"""# {basename}
 
+## Graph
+
+> Run `python main.py` to generate this image.
+
+![{basename} graph]({basename}.png)
+
 ## Graph Specification
 
-From `{input_filename}`:
+`{basename}.lgraph`:
 
 ```
-{graph_spec.strip()}
+{concise_spec.strip()}
+```
+
+Expanded (`{basename}.lgraphx`):
+
+```
+{expanded_spec.strip()}
 ```
 
 ## Run

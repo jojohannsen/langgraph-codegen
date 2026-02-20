@@ -72,13 +72,16 @@ def main():
 
     # 1. Extract STATE section first (before preprocessing)
     state_class_name, state_fields, graph_spec = parse_state_section(graph_spec)
+    concise_spec = graph_spec  # save pre-expansion form
 
     if not is_expanded:
         # 2. Expand chained arrows (a -> b -> c) into individual edges
         graph_spec = expand_chains(graph_spec)
 
-        # 3. Preprocess START syntax on the graph-only part
-        graph_spec = preprocess_start_syntax(graph_spec, basename)
+    expanded_spec = graph_spec  # for .lgraphx — uses -> and START:Class only
+
+    # 3. Preprocess START syntax (always runs, even for .lgraphx input)
+    graph_spec = preprocess_start_syntax(graph_spec, basename)
 
     # 4. If STATE gave us a class name, ensure START uses it
     if state_class_name:
@@ -151,7 +154,7 @@ def main():
 
         # Write expanded intermediate format
         lgraphx_path = output_dir / f"{basename}.lgraphx"
-        lgraphx_path.write_text(graph_spec + '\n')
+        lgraphx_path.write_text(expanded_spec + '\n')
         print(f"Wrote {lgraphx_path}")
 
         for name, code in sections.items():
@@ -185,7 +188,7 @@ def main():
             print(f"Wrote {main_path}")
 
             readme_path = output_dir / "README.md"
-            readme_path.write_text(gen_readme(basename, graph_spec, input_path.name, output_dir.name) + '\n')
+            readme_path.write_text(gen_readme(basename, concise_spec, expanded_spec, output_dir.name) + '\n')
             print(f"Wrote {readme_path}")
 
         if args.verify:
