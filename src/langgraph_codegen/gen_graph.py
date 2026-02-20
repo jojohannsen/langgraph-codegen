@@ -1,7 +1,8 @@
 import random
 import sys
+from dataclasses import dataclass, field
 from textwrap import dedent
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, List, Optional, Tuple, Union
 from pathlib import Path
 import os
 from langgraph_codegen.graph import Graph
@@ -128,9 +129,14 @@ def preprocess_start_syntax(graph_spec, graph_name):
         return graph_spec
     return graph_spec
 
-def transform_graph_spec(graph_spec: str) -> str:
+def normalize_spec(graph_spec: str) -> str:
+    """Stage 2: Convert expanded format to normalized indented format.
+
+    Input: expanded spec (one -> per line, from expand_chains + preprocess_start_syntax)
+    Output: normalized spec with indented edges and metadata comments
+    """
     graph_spec = dedent(graph_spec)
-    graph_spec = expand_chains(graph_spec)
+    # NOTE: no expand_chains() call — input is already expanded
     lines = graph_spec.split("\n")
     transformed_lines = []
     state_class_name = None
@@ -218,6 +224,46 @@ def transform_graph_spec(graph_spec: str) -> str:
             transformed_lines.append(line)
 
     return "\n".join(transformed_lines)
+
+
+def transform_graph_spec(graph_spec: str) -> str:
+    """Full transform (backward compat): expands chains then normalizes."""
+    graph_spec = dedent(graph_spec)
+    graph_spec = expand_chains(graph_spec)
+    return normalize_spec(graph_spec)
+
+
+@dataclass
+class ParsedSpec:
+    """Pre-computed results from parsing a graph specification."""
+    raw_spec: str                                          # After expand + preprocess (expanded format)
+    normalized_spec: str                                   # After normalize_spec() (normalized format)
+    graph_dict: dict                                       # {node: {state, edges: [{condition, destination}]}}
+    start_node: str
+    state_class: str
+    worker_functions: List[Tuple[str, str]] = field(default_factory=list)          # [(func_name, field_name), ...]
+    assignment_functions: List[Tuple[str, str, str]] = field(default_factory=list) # [(assign_fn, field_name, worker_fn), ...]
+    switch_functions: List[Tuple[str, List[str]]] = field(default_factory=list)    # [(fn_name, [params]), ...]
+
+
+def parse_spec(graph_spec: str) -> 'ParsedSpec':
+    """Run the full pipeline once and return all intermediate results.
+
+    Input should already be through expand_chains() + preprocess_start_syntax().
+    """
+    normalized = normalize_spec(graph_spec)
+    graph_dict, start_node = parse_graph_spec(graph_spec)
+    state_class = graph_dict[start_node]["state"]
+    return ParsedSpec(
+        raw_spec=graph_spec,
+        normalized_spec=normalized,
+        graph_dict=graph_dict,
+        start_node=start_node,
+        state_class=state_class,
+        worker_functions=find_worker_functions(graph_spec),
+        assignment_functions=find_assignment_functions(normalized),
+        switch_functions=find_switch_functions(normalized),
+    )
 
 
 def parse_graph_spec(graph_spec, state_class_name=None):
@@ -509,19 +555,22 @@ def {condition}(state: {state_type}) -> bool:
     return result
 """
 
-def gen_conditions(graph_spec, human=False):
-    graph, start_node = parse_graph_spec(graph_spec)
+def gen_conditions(graph_spec, human=False, parsed=None):
+    if parsed:
+        graph, start_node = parsed.graph_dict, parsed.start_node
+        assignment_func_names = {af[0] for af in parsed.assignment_functions}
+        switch_funcs = parsed.switch_functions
+    else:
+        graph, start_node = parse_graph_spec(graph_spec)
+        transformed_spec = transform_graph_spec(graph_spec)
+        assignment_func_names = {af[0] for af in find_assignment_functions(transformed_spec)}
+        switch_funcs = find_switch_functions(transformed_spec)
+
     conditions = []
     state_type = graph[start_node]["state"]
 
-    # Assignment functions (e.g., assign_workers_llm_call) return [Send(...)],
-    # not booleans — skip them in condition generation.
-    transformed_spec = transform_graph_spec(graph_spec)
-    assignment_func_names = {af[0] for af in find_assignment_functions(transformed_spec)}
-
     # Switch functions — single function returning a node name string.
     # Skip individual bool conditions that belong to a switch.
-    switch_funcs = find_switch_functions(transformed_spec)
     switch_condition_names = set()
     for fn_name, params in switch_funcs:
         for param in params:
@@ -597,21 +646,25 @@ def {func_name}(item):
     return {{"result": f"processed {{item}}"}}
 """
 
-def gen_worker_functions(graph_spec):
+def gen_worker_functions(graph_spec, parsed=None):
     """Generate all Worker Function implementations."""
-    graph, start_node = parse_graph_spec(graph_spec)
-    state_type = graph[start_node]["state"]
-    
-    worker_functions = find_worker_functions(graph_spec)
+    if parsed:
+        state_type = parsed.state_class
+        worker_functions = parsed.worker_functions
+    else:
+        graph, start_node = parse_graph_spec(graph_spec)
+        state_type = graph[start_node]["state"]
+        worker_functions = find_worker_functions(graph_spec)
+
     if not worker_functions:
         return "# This graph has no worker functions"
-    
+
     result = "# Worker Function\n"
     implementations = []
-    
+
     for func_name, param in worker_functions:
         implementations.append(gen_worker_function(func_name, param, state_type))
-    
+
     return result + "\n".join(implementations)
 
 def find_switch_functions(transformed_spec):
@@ -672,21 +725,23 @@ def {assignment_func}(state: {state_type}):
     return [Send('{worker_func}', {{'item': item}}) for item in state['{field_name}']]
 """
 
-def gen_assignment_functions(graph_spec):
+def gen_assignment_functions(graph_spec, parsed=None):
     """Generate all Assignment Function implementations."""
-    # First get the transformed spec to find WORKER_ASSIGNMENT comments
-    transformed_spec = transform_graph_spec(graph_spec)
-    
-    graph, start_node = parse_graph_spec(graph_spec)
-    state_type = graph[start_node]["state"]
-    
-    assignment_functions = find_assignment_functions(transformed_spec)
+    if parsed:
+        state_type = parsed.state_class
+        assignment_functions = parsed.assignment_functions
+    else:
+        transformed_spec = transform_graph_spec(graph_spec)
+        graph, start_node = parse_graph_spec(graph_spec)
+        state_type = graph[start_node]["state"]
+        assignment_functions = find_assignment_functions(transformed_spec)
+
     if not assignment_functions:
         return "# This graph has no assignment functions"
-    
+
     result = "# Assignment Functions\n# Functions that coordinate work distribution to worker functions"
     implementations = []
-    
+
     for assignment_func, field_name, worker_func in assignment_functions:
         implementations.append(gen_assignment_function(assignment_func, field_name, worker_func, state_type))
     
@@ -815,15 +870,21 @@ def mock_state(state_class, extra_fields=None):
                 fields.append((field_name, field_type))
     return gen_state_class(state_class, fields, is_default=True)
 
-def gen_state(graph_spec, state_class_file=None, state_fields=None, state_class_name=None):
-    graph, start_node = parse_graph_spec(graph_spec)
-    state_class = state_class_name or graph[start_node]["state"]
+def gen_state(graph_spec, state_class_file=None, state_fields=None, state_class_name=None, parsed=None):
+    if parsed:
+        state_class = state_class_name or parsed.state_class
+        worker_funcs = parsed.worker_functions
+    else:
+        graph, start_node = parse_graph_spec(graph_spec)
+        state_class = state_class_name or graph[start_node]["state"]
+        worker_funcs = find_worker_functions(graph_spec)
+
     if state_class_file:
         return f"from {state_class_file.split('.')[0]} import {state_class}"
 
     # Extract worker-pattern extra fields (e.g., State.sections or plain sections)
     worker_extra = []
-    for func_name, param in find_worker_functions(graph_spec):
+    for func_name, param in worker_funcs:
         if '.' in param:
             field_name = param.split('.')[1]
         else:
@@ -844,9 +905,19 @@ def gen_state(graph_spec, state_class_file=None, state_fields=None, state_class_
 
 
     
-def gen_graph(graph_name, graph_spec, compile_args=None):
+def gen_graph(graph_name, graph_spec, compile_args=None, parsed=None):
     if not graph_spec: return ""
-    graph, start_node = parse_graph_spec(graph_spec)
+    if parsed:
+        graph = parsed.graph_dict
+        start_node = parsed.start_node
+        assignment_funcs = parsed.assignment_functions
+        switch_funcs = parsed.switch_functions
+    else:
+        graph, start_node = parse_graph_spec(graph_spec)
+        transformed_spec = transform_graph_spec(graph_spec)
+        assignment_funcs = find_assignment_functions(transformed_spec)
+        switch_funcs = find_switch_functions(transformed_spec)
+
     nodes_added = []
 
     # Generate the graph state, node definitions, and entry point
@@ -859,7 +930,7 @@ from langgraph.checkpoint.memory import MemorySaver
 import sqlite3"""
     if state_type == "MessageGraph":
         imports += """
-from langgraph.graph import MessageGraph""" 
+from langgraph.graph import MessageGraph"""
 
     graph_setup += f"checkpoint_saver = MemorySaver()\n"
     builder_graph = f"builder_{graph_name}"
@@ -884,8 +955,6 @@ from langgraph.graph import MessageGraph"""
     # Build map of nodes that use worker/assignment patterns (Send API).
     # For these nodes we emit add_conditional_edges with a list target
     # instead of the normal routing-function + dict approach.
-    transformed_spec = transform_graph_spec(graph_spec)
-    assignment_funcs = find_assignment_functions(transformed_spec)
     # Map: source_node_name -> list of (assign_fn, worker_fn)
     worker_assignment_map = {}
     for assign_fn, field_name, worker_fn in assignment_funcs:
@@ -897,7 +966,6 @@ from langgraph.graph import MessageGraph"""
 
     # Build map of nodes that use switch functions (single routing function).
     # For these nodes we skip mk_conditions (no routing wrapper needed).
-    switch_funcs = find_switch_functions(transformed_spec)
     switch_node_map = {}
     for sf_name, sf_params in switch_funcs:
         for n, nd in graph.items():

@@ -9,7 +9,7 @@ from langgraph_codegen.gen_graph import (
     gen_graph, gen_nodes, gen_state,
     gen_conditions, gen_worker_functions, gen_assignment_functions,
     find_worker_functions, gen_main, gen_readme,
-    parse_graph_spec, parse_state_section, preprocess_start_syntax,
+    parse_spec, parse_graph_spec, parse_state_section, preprocess_start_syntax,
     expand_chains, list_examples, get_example_path
 )
 
@@ -91,13 +91,13 @@ def main():
     # Determine what to generate (default = all)
     generate_all = not (args.state or args.nodes or args.graph)
 
-    # Parse once to validate
-    graph_dict, start_node = parse_graph_spec(graph_spec)
+    # Stages 2+3: Expanded -> Normalized -> Parsed (once)
+    parsed = parse_spec(graph_spec)
 
     # Extract metadata for cross-file imports
-    state_class = graph_dict[start_node]["state"]
+    state_class = parsed.state_class
     node_names = []
-    for node_key in graph_dict:
+    for node_key in parsed.graph_dict:
         if node_key == "START":
             continue
         if "," in node_key:
@@ -107,29 +107,29 @@ def main():
     node_names = list(dict.fromkeys(node_names))  # dedupe, preserve order
 
     # Exclude worker functions (they're defined in the graph file, not nodes)
-    worker_func_names = {f[0] for f in find_worker_functions(graph_spec)}
+    worker_func_names = {f[0] for f in parsed.worker_functions}
     import_node_names = [n for n in node_names if n not in worker_func_names]
 
     # Generate requested sections
     sections = {}
     if args.state or generate_all:
         sections['state'] = gen_state(graph_spec, state_fields=state_fields if state_fields else None,
-                                      state_class_name=state_class_name)
+                                      state_class_name=state_class_name, parsed=parsed)
     if args.nodes or generate_all:
-        sections['nodes'] = gen_nodes(graph_dict, worker_func_names=worker_func_names)
+        sections['nodes'] = gen_nodes(parsed.graph_dict, worker_func_names=worker_func_names)
     if args.graph or generate_all:
         parts = []
-        conditions = gen_conditions(graph_spec)
+        conditions = gen_conditions(graph_spec, parsed=parsed)
         if conditions and conditions.strip() != '# Conditional Edge Functions: None':
             parts.append("import random\n\ndef random_one_or_zero():\n    return random.choice([False, True])")
             parts.append(conditions)
-        workers = gen_worker_functions(graph_spec)
+        workers = gen_worker_functions(graph_spec, parsed=parsed)
         if workers and not workers.startswith("# This graph has no"):
             parts.append(workers)
-        assignments = gen_assignment_functions(graph_spec)
+        assignments = gen_assignment_functions(graph_spec, parsed=parsed)
         if assignments and not assignments.startswith("# This graph has no"):
             parts.append(assignments)
-        parts.append(gen_graph(basename, graph_spec))
+        parts.append(gen_graph(basename, graph_spec, parsed=parsed))
         sections['graph'] = '\n\n'.join(parts)
 
     # Output
